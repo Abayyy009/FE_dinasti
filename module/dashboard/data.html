@@ -1,0 +1,106 @@
+<div class="space-y-6">
+
+    <!-- Welcome Text -->
+    <div class="text-xl font-bold text-gray-800">
+        Welcome, ini bagian dashboard
+    </div>
+
+    <!-- Summary Cards -->
+    <div id="dashboardSummary" class="grid grid-cols-1 sm:grid-cols-3 gap-4 my-6">
+        <div class="p-4 bg-white rounded-xl shadow text-center">
+            <h2 class="text-sm text-gray-500">Total Transaksi</h2>
+            <p id="totalTransactions" class="text-xl font-semibold text-blue-600">124</p>
+        </div>
+        <div class="p-4 bg-white rounded-xl shadow text-center">
+            <h2 class="text-sm text-gray-500">Total Produk Terjual</h2>
+            <p id="totalItemsSold" class="text-xl font-semibold text-green-600">890</p>
+        </div>
+        <div class="p-4 bg-white rounded-xl shadow text-center">
+            <h2 class="text-sm text-gray-500">Total Penjualan</h2>
+            <p id="totalSales" class="text-xl font-semibold text-amber-600">Rp 45.320.000</p>
+        </div>
+    </div>
+
+    <!-- Grafik Sales -->
+    <div class="bg-white dark:bg-gray-800 rounded shadow p-4">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-4">
+            <h3 class="text-lg font-semibold text-gray-800 dark:text-white">Sales Overview (Last 7 Days)</h3>
+            <div class="flex space-x-2 mt-2 md:mt-0">
+                <select id="chartTypeSelector" onchange="loadSalesGraph(currentPeriod)"
+                    class="border text-sm px-3 py-1 rounded text-gray-700 dark:text-white dark:bg-gray-700 dark:border-gray-600">
+                    <option value="bar">Bar</option>
+                    <option value="line">Line</option>
+                </select>
+                <select onchange="loadSalesGraph(this.value)"
+                    class="border text-sm px-3 py-1 rounded text-gray-700 dark:text-white dark:bg-gray-700 dark:border-gray-600">
+                    <option value="weekly">Mingguan</option>
+                    <option value="monthly">Bulanan</option>
+                    <option value="yearly">Tahunan</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Chart Area -->
+        <div class="relative h-[400px]">
+            <canvas id="salesChart" class="w-full h-full"></canvas>
+            <div id="chartLoader"
+                class="absolute inset-0 bg-white/60 dark:bg-gray-800/60 flex justify-center items-center z-10 hidden">
+                <div class="w-6 h-6 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Section -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Top Products -->
+        <div class="mt-6">
+            <h2 class="text-lg font-semibold mb-2">Top Produk Terlaris</h2>
+            <div id="topProductsContainer" class="space-y-3">
+                <div class="p-3 bg-white rounded shadow flex justify-between">
+                    <span>Kaos Katun Premium</span>
+                    <span class="font-bold text-green-600">320 pcs</span>
+                </div>
+                <div class="p-3 bg-white rounded shadow flex justify-between">
+                    <span>Hoodie Oversize</span>
+                    <span class="font-bold text-green-600">215 pcs</span>
+                </div>
+                <div class="p-3 bg-white rounded shadow flex justify-between">
+                    <span>Tas Ransel Anti Air</span>
+                    <span class="font-bold text-green-600">178 pcs</span>
+                </div>
+                <div class="p-3 bg-white rounded shadow flex justify-between">
+                    <span>Sepatu Sneakers</span>
+                    <span class="font-bold text-green-600">150 pcs</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Top Customers -->
+        <div class="bg-white dark:bg-gray-800 rounded shadow p-4">
+            <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-3">Top 5 Best Customers</h3>
+            <ul class="space-y-2">
+                <li class="flex justify-between border-b pb-2">
+                    <span>Andi Prasetyo</span>
+                    <span class="font-medium">Rp 8.500.000</span>
+                </li>
+                <li class="flex justify-between border-b pb-2">
+                    <span>Siti Aisyah</span>
+                    <span class="font-medium">Rp 7.200.000</span>
+                </li>
+                <li class="flex justify-between border-b pb-2">
+                    <span>Rizki Ramadhan</span>
+                    <span class="font-medium">Rp 6.800.000</span>
+                </li>
+                <li class="flex justify-between border-b pb-2">
+                    <span>Lina Marlina</span>
+                    <span class="font-medium">Rp 5.900.000</span>
+                </li>
+                <li class="flex justify-between">
+                    <span>Joko Santoso</span>
+                    <span class="font-medium">Rp 5.300.000</span>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+</div>
