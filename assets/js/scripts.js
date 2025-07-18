@@ -14,7 +14,7 @@ const address = company.address;
 const company_phone = company.company_phone;
 const printer_setting = company.printer_setting;
 
-const default_module = "sales";
+const default_module = "sales_recap";
 
 let currentScript = null;
 let formHtml = null;
@@ -208,7 +208,5 @@ function collapseSidebar() {
   mainContent.classList.add("md:ml-16");
   mainContent.classList.remove("md:ml-64");
 }
-
-
 
 window.onload = loadAppSections;
