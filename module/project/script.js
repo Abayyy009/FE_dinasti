@@ -1,4 +1,4 @@
-pagemodule = "Project";
+pagemodule = "project";
 colSpanCount = 9;
 setDataType("project");
 fetchAndUpdateData();
