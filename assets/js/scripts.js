@@ -209,4 +209,6 @@ function collapseSidebar() {
   mainContent.classList.remove("md:ml-64");
 }
 
+
+
 window.onload = loadAppSections;
