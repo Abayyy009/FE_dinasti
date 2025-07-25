@@ -1,4 +1,4 @@
-pagemoduleparent = "sales";
+pagemoduleparent = "salesrecap";
 function renderMarketingCharts() {
   const ctxMarketingBar = document.getElementById("chartMarketingBar");
   const ctxMarketingPie = document.getElementById("chartMarketingPie");

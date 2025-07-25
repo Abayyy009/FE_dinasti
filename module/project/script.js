@@ -14,6 +14,7 @@ window.rowTemplate = function (item, index, perPage = 10) {
 
   return `
   <tr class="flex flex-col sm:table-row border rounded sm:rounded-none mb-4 sm:mb-0 shadow-sm sm:shadow-none transition hover:bg-gray-50">
+
     <td class="px-6 py-4 text-sm border-b sm:border-0 flex justify-between sm:table-cell bg-gray-800 text-white sm:bg-transparent sm:text-gray-700">
       <span class="font-medium sm:hidden">Project Number</span>  
       ${item.project_number}
@@ -34,7 +35,7 @@ window.rowTemplate = function (item, index, perPage = 10) {
       ${item.customer}
     </td>
 
-    <td class="px-6 py-4 text-sm text-right text-gray-700 border-b sm:border-0 flex justify-between sm:table-cell">
+    <td class="px-6 py-4 text-sm text-left text-gray-700 border-b sm:border-0 flex justify-between sm:table-cell">
       <span class="font-medium sm:hidden">Project Value</span>  
       Rp ${item.project_value}
     </td>
@@ -55,8 +56,8 @@ window.rowTemplate = function (item, index, perPage = 10) {
     </td>
 
     <td class="px-6 py-4 text-sm text-gray-700 flex justify-between sm:table-cell">
-      <span class="font-medium sm:hidden">Status</span>
-      ${item.status}
+      <span class="bg-green-100 text-green-700 px-2 py-1 rounded text-xs">
+   ${item.status}
     </td>
   </tr>`;
 };
@@ -114,3 +115,4 @@ formHtml = `
   </div>
 </form>
 `;
+

@@ -7,11 +7,12 @@ async function init() {
 }
 init();
 
-let typeList = [];
+typeList = [];
 
 document.getElementById("addButton").addEventListener("click", () => {
   showFormModal(); // Tampilkan form modal
   loadProjectType(); // Baru ambil dan isi dropdown setelah form ada
+  loadDropdownCall();
 });
 
 window.rowTemplate = function (item, index, perPage = 10) {
@@ -84,8 +85,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 });
 
 formHtml = `
-<form id="dataform" class="space-y-4 text-center" enctype="multipart/form-data">
 
+<form id="dataform" class="space-y-4 text-center" enctype="multipart/form-data">
+<input type="hidden" name="user_id" value="100" />
   <!-- Tanggal -->
   <div>
     <input type="date" id="tanggal" name="tanggal"
@@ -118,13 +120,13 @@ formHtml = `
 
   <!-- Total Order -->
   <div>
-    <input id="total_order" name="total_order" type="number" placeholder="Fill Total Order"
+    <input id="amount" name="amount" type="number" placeholder="Fill Total Order"
       class="form-control w-full px-3 py-2 border rounded-md bg-white text-gray-700" />
   </div>
 
   <!-- Nama Client -->
   <div>
-    <input id="pelanggan_nama" name="pelanggan_nama" type="text" placeholder="Who's The Client?"
+    <input id="client" name="client" type="text" placeholder="Who's The Client?"
       class="form-control w-full px-3 py-2 border rounded-md bg-white text-gray-700" />
   </div>
 
@@ -235,7 +237,7 @@ async function generateNoQtn() {
   }
 }
 
-let statusSalesMap = {};
+statusSalesMap = {};
 
 async function loadStatusSalesMap() {
   try {
@@ -258,32 +260,23 @@ async function loadStatusSalesMap() {
     console.error("Gagal mengambil status sales:", err);
   }
 }
+const tanggalInput = document.getElementById("tanggal");
 
-// Tambahkan setelah formHtml disusun
-document.addEventListener("DOMContentLoaded", () => {
-  const tanggalInput = document.getElementById("tanggal");
-
-  if (tanggalInput) {
-    tanggalInput.addEventListener("change", function () {
-      const value = this.value; // yyyy-mm-dd
-      if (value) {
-        const [year, month, day] = value.split("-");
-        const formatted = `${year}/${month}/${day}`;
-
-        // Tambahkan ke hidden input (buat jika belum ada)
-        let hiddenInput = document.getElementById("tanggal_formatted");
-        if (!hiddenInput) {
-          hiddenInput = document.createElement("input");
-          hiddenInput.type = "hidden";
-          hiddenInput.id = "tanggal_formatted";
-          hiddenInput.name = "tanggal_formatted";
-          this.parentNode.appendChild(hiddenInput);
-        }
-
-        hiddenInput.value = formatted;
-
-        console.log("📆 Formatted Tanggal:", formatted);
+if (tanggalInput) {
+  tanggalInput.addEventListener("change", function () {
+    const value = this.value; // yyyy-mm-dd
+    if (value) {
+      let hiddenInput = document.getElementById("tanggal_formatted");
+      if (!hiddenInput) {
+        hiddenInput = document.createElement("input");
+        hiddenInput.type = "hidden";
+        hiddenInput.id = "tanggal_formatted";
+        hiddenInput.name = "tanggal_formatted";
+        this.parentNode.appendChild(hiddenInput);
       }
-    });
-  }
-});
+
+      hiddenInput.value = value;
+      console.log("📆 Formatted Tanggal:", value);
+    }
+  });
+}

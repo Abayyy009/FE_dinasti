@@ -139,7 +139,6 @@ async function createData(type, payload) {
       method: "POST",
       headers: {
         Authorization: `Bearer ${API_TOKEN}`,
-        "Content-Type": "application/json",
       },
       body: body,
     });
