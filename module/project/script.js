@@ -13,7 +13,7 @@ window.rowTemplate = function (item, index, perPage = 10) {
   const globalIndex = (currentPage - 1) * perPage + index + 1;
 
   return `
-  <tr class="flex flex-col sm:table-row border rounded sm:rounded-none mb-4 sm:mb-0 shadow-sm sm:shadow-none transition hover:bg-gray-50">
+  <tr class="flex flex-col sm:table-row border rounded sm:rounded-none mb-4 sm:mb-0 shadow-sm sm:shadow-none transition hover:bg-gray-50 relative group">
 
     <td class="px-6 py-4 text-sm border-b sm:border-0 flex justify-between sm:table-cell bg-gray-800 text-white sm:bg-transparent sm:text-gray-700">
       <span class="font-medium sm:hidden">Project Number</span>  
@@ -57,7 +57,26 @@ window.rowTemplate = function (item, index, perPage = 10) {
 
     <td class="px-6 py-4 text-sm text-gray-700 flex justify-between sm:table-cell">
       <span class="bg-green-100 text-green-700 px-2 py-1 rounded text-xs">
-   ${item.status}
+        ${item.status}
+      </span>
+      <!-- Dropdown trigger -->
+      <button class="sm:hidden text-gray-500 hover:text-gray-700 ml-2">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+          <path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 11-4 0 2 2 0 014 0zM16 12a2 2 0 100-4 2 2 0 000 4z" />
+        </svg>
+      </button>
+    </td>
+
+    <!-- Dropdown menu (hidden by default) -->
+    <td class="absolute right-0 top-full sm:top-auto sm:relative hidden group-hover:block sm:group-hover:hidden bg-white shadow-lg rounded-md z-10 w-48 sm:w-auto sm:px-6 sm:py-4">
+      <div class="py-1">
+        <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Edit</a>
+        <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Delete</a>
+        <div class="border-t border-gray-100"></div>
+        <a href="#" class="block px-4 py-2 text-sm text-blue-600 hover:bg-gray-100">Set On Going</a>
+        <a href="#" class="block px-4 py-2 text-sm text-green-600 hover:bg-gray-100">Set Won</a>
+        <a href="#" class="block px-4 py-2 text-sm text-red-600 hover:bg-gray-100">Set Lose</a>
+      </div>
     </td>
   </tr>`;
 };
@@ -116,3 +135,17 @@ formHtml = `
 </form>
 `;
 
+document.querySelectorAll("tr button").forEach((button) => {
+  button.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const dropdown = button.closest("tr").querySelector("td:last-child");
+    dropdown.classList.toggle("hidden");
+  });
+});
+
+// Close dropdowns when clicking elsewhere
+document.addEventListener("click", () => {
+  document.querySelectorAll("td.absolute").forEach((dropdown) => {
+    dropdown.classList.add("hidden");
+  });
+});

@@ -260,23 +260,23 @@ async function loadStatusSalesMap() {
     console.error("Gagal mengambil status sales:", err);
   }
 }
-const tanggalInput = document.getElementById("tanggal");
+// const tanggalInput = document.getElementById("tanggal");
 
-if (tanggalInput) {
-  tanggalInput.addEventListener("change", function () {
-    const value = this.value; // yyyy-mm-dd
-    if (value) {
-      let hiddenInput = document.getElementById("tanggal_formatted");
-      if (!hiddenInput) {
-        hiddenInput = document.createElement("input");
-        hiddenInput.type = "hidden";
-        hiddenInput.id = "tanggal_formatted";
-        hiddenInput.name = "tanggal_formatted";
-        this.parentNode.appendChild(hiddenInput);
-      }
+// if (tanggalInput) {
+//   tanggalInput.addEventListener("change", function () {
+//     const value = this.value; // yyyy-mm-dd
+//     if (value) {
+//       let hiddenInput = document.getElementById("tanggal_formatted");
+//       if (!hiddenInput) {
+//         hiddenInput = document.createElement("input");
+//         hiddenInput.type = "hidden";
+//         hiddenInput.id = "tanggal_formatted";
+//         hiddenInput.name = "tanggal_formatted";
+//         this.parentNode.appendChild(hiddenInput);
+//       }
 
-      hiddenInput.value = value;
-      console.log("📆 Formatted Tanggal:", value);
-    }
-  });
-}
+//       hiddenInput.value = value;
+//       console.log("📆 Formatted Tanggal:", value);
+//     }
+//   });
+// }
