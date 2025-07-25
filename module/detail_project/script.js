@@ -1,13 +1,10 @@
-pagemodule = 'Package';
-colSpanCount = 9;
-setDataType('sales_package');
-fetchAndUpdateData();
+pagemodule = "detail_project";
 
 window.rowTemplate = function (item, index, perPage = 10) {
-    const { currentPage } = state[currentDataType];
-    const globalIndex = (currentPage - 1) * perPage + index + 1;
-  
-    return `
+  const { currentPage } = state[currentDataType];
+  const globalIndex = (currentPage - 1) * perPage + index + 1;
+
+  return `
   <tr class="flex flex-col sm:table-row border rounded sm:rounded-none mb-4 sm:mb-0 shadow-sm sm:shadow-none transition hover:bg-gray-50">
 
     <td class="px-6 py-4 text-sm border-b sm:border-0 flex justify-between sm:table-cell bg-gray-800 text-white sm:bg-transparent sm:text-gray-700">
@@ -45,240 +42,321 @@ window.rowTemplate = function (item, index, perPage = 10) {
       ${item.status}         
     </td>
           <div class="dropdown-menu hidden fixed w-48 bg-white border rounded shadow z-50 text-sm">
-   ${item.status_id === 1 ? `
+   ${
+     item.status_id === 1
+       ? `
       <button onclick="event.stopPropagation(); updatePackageStatus('${item.package_id}');" class="block w-full text-left px-4 py-2 hover:bg-gray-100">
         📦 Process Packing
       </button>
-      ` : ''}
-      ${item.pic_name && item.pic_name !== "null" ? `
+      `
+       : ""
+   }
+      ${
+        item.pic_name && item.pic_name !== "null"
+          ? `
       <button onclick="event.stopPropagation(); printPackingList('${item.package_id}');" class="block w-full text-left px-4 py-2 hover:bg-gray-100">
         🖨️ Print Packing List
       </button>
-       ` : ''}
-      ${item.status_id === 5 ? `
+       `
+          : ""
+      }
+      ${
+        item.status_id === 5
+          ? `
       <button onclick="event.stopPropagation(); addShipment('${item.package_id}');" class="block w-full text-left px-4 py-2 hover:bg-gray-100">
         🚚 Process Shipping
       </button>
-       ` : ''}
+       `
+          : ""
+      }
       </div>
   </tr>`;
 };
 
 async function updatePackageStatus(package_id) {
-    const { value: pic_name } = await Swal.fire({
-      title: 'Input Nama PIC',
-      input: 'text',
-      inputLabel: 'Nama Karyaman yang memproses',
-      inputPlaceholder: 'Contoh: Ujang',
-      showCancelButton: true,
-      confirmButtonText: 'Update Status',
-      inputValidator: (value) => {
-        if (!value) {
-          return 'Nama PIC wajib diisi!';
-        }
+  const { value: pic_name } = await Swal.fire({
+    title: "Input Nama PIC",
+    input: "text",
+    inputLabel: "Nama Karyaman yang memproses",
+    inputPlaceholder: "Contoh: Ujang",
+    showCancelButton: true,
+    confirmButtonText: "Update Status",
+    inputValidator: (value) => {
+      if (!value) {
+        return "Nama PIC wajib diisi!";
       }
-    });
+    },
+  });
 
-    if (!pic_name) return;
+  if (!pic_name) return;
 
-    try {
-      const res = await fetch(`${baseUrl}/update/sales_package_status/${package_id}`, {
-        method: 'PUT',
+  try {
+    const res = await fetch(
+      `${baseUrl}/update/sales_package_status/${package_id}`,
+      {
+        method: "PUT",
         headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${API_TOKEN}`
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${API_TOKEN}`,
         },
         body: JSON.stringify({
           pic_name,
-          status_id: 5
-        })
-      });
-
-      const result = await res.json();
-      if (res.ok) {
-        Swal.fire({
-          icon: 'success',
-          title: 'Berhasil!',
-          text: 'Status paket berhasil diperbarui.'
-        });
-        fetchAndUpdateData();
-      } else {
-        throw new Error(result.message || 'Gagal memperbarui status.');
+          status_id: 5,
+        }),
       }
-    } catch (error) {
+    );
+
+    const result = await res.json();
+    if (res.ok) {
       Swal.fire({
-        icon: 'error',
-        title: 'Gagal',
-        text: error.message
+        icon: "success",
+        title: "Berhasil!",
+        text: "Status paket berhasil diperbarui.",
       });
+      fetchAndUpdateData();
+    } else {
+      throw new Error(result.message || "Gagal memperbarui status.");
     }
+  } catch (error) {
+    Swal.fire({
+      icon: "error",
+      title: "Gagal",
+      text: error.message,
+    });
   }
+}
 
 async function printPackingList(package_id) {
   try {
-    const response = await fetch(`${baseUrl}/detail/sales_package/${package_id}`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${API_TOKEN}`
+    const response = await fetch(
+      `${baseUrl}/detail/sales_package/${package_id}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${API_TOKEN}`,
+        },
       }
-    });
+    );
 
     const result = await response.json();
     const data = result?.detail;
-    if (!data) throw new Error('Data paket tidak ditemukan');
+    if (!data) throw new Error("Data paket tidak ditemukan");
 
     // Tampilkan pilihan aksi ke user
     const { isConfirmed, dismiss } = await Swal.fire({
-      title: 'Cetak Packing List',
-      text: 'Pilih metode pencetakan:',
-      icon: 'question',
+      title: "Cetak Packing List",
+      text: "Pilih metode pencetakan:",
+      icon: "question",
       showCancelButton: true,
-      confirmButtonText: 'Download PDF',
-      cancelButtonText: 'Print Langsung',
-      reverseButtons: true
+      confirmButtonText: "Download PDF",
+      cancelButtonText: "Print Langsung",
+      reverseButtons: true,
     });
 
     if (isConfirmed) {
       const url = `packing_print.html?package_id=${package_id}`;
       // === Download PDF (via packing_print.html di iframe) ===
       Swal.fire({
-        title: 'Menyiapkan PDF...',
-        html: 'File akan diunduh otomatis.',
+        title: "Menyiapkan PDF...",
+        html: "File akan diunduh otomatis.",
         allowOutsideClick: false,
         allowEscapeKey: false,
         didOpen: () => {
           Swal.showLoading();
 
-
-            const iframe = document.createElement('iframe');
-            iframe.src = url + '&mode=download';
-            iframe.style.width = '0';
-            iframe.style.height = '0';
-            iframe.style.border = 'none';
-            document.body.appendChild(iframe);
-
+          const iframe = document.createElement("iframe");
+          iframe.src = url + "&mode=download";
+          iframe.style.width = "0";
+          iframe.style.height = "0";
+          iframe.style.border = "none";
+          document.body.appendChild(iframe);
 
           setTimeout(() => {
             Swal.close();
-            Swal.fire('Berhasil', 'Packing List berhasil diunduh.', 'success');
+            Swal.fire("Berhasil", "Packing List berhasil diunduh.", "success");
           }, 3000);
-        }
+        },
       });
-
     } else if (dismiss === Swal.DismissReason.cancel) {
       // === Print Langsung (open tab) ===
-      window.open(`packing_print.html?package_id=${package_id}`, '_blank');
+      window.open(`packing_print.html?package_id=${package_id}`, "_blank");
     }
-
   } catch (error) {
     Swal.fire({
-      title: 'Gagal',
+      title: "Gagal",
       text: error.message,
-      icon: 'error'
+      icon: "error",
     });
   }
 }
 
 function printPDFPackage(package_id) {
-  const printWindow = window.open(`packing_print.html?package_id=${package_id}`, '_blank');
+  const printWindow = window.open(
+    `packing_print.html?package_id=${package_id}`,
+    "_blank"
+  );
 }
 
 async function printBulkPackingList() {
   try {
-    const res = await fetch(`${baseUrl}/counting/sales_package_unpack/${owner_id}`, {
-      headers: {
-        'Authorization': `Bearer ${API_TOKEN}`
+    const res = await fetch(
+      `${baseUrl}/counting/sales_package_unpack/${owner_id}`,
+      {
+        headers: {
+          Authorization: `Bearer ${API_TOKEN}`,
+        },
       }
-    });
+    );
 
     const result = await res.json();
     const ids = result?.countData?.package_ids;
 
     if (!ids || ids.length === 0) {
-      return Swal.fire('Tidak Ada Data', 'Semua paket sudah diproses atau tidak ditemukan.', 'info');
+      return Swal.fire(
+        "Tidak Ada Data",
+        "Semua paket sudah diproses atau tidak ditemukan.",
+        "info"
+      );
     }
 
-    const idString = ids.join(',');
+    const idString = ids.join(",");
     const url = `packing_list_combined.html?ids=${idString}`;
 
     // Pilih metode cetak
     Swal.fire({
-      title: 'Cetak Packing List',
-      text: 'Pilih metode pencetakan:',
+      title: "Cetak Packing List",
+      text: "Pilih metode pencetakan:",
       showCancelButton: true,
-      confirmButtonText: 'Download PDF',
-      cancelButtonText: 'Print (Langsung)',
-      reverseButtons: true
+      confirmButtonText: "Download PDF",
+      cancelButtonText: "Print (Langsung)",
+      reverseButtons: true,
     }).then((result) => {
       if (result.isConfirmed) {
         // === Download PDF (gunakan iframe tersembunyi) ===
         Swal.fire({
-          title: 'Menyiapkan PDF...',
-          html: 'Silakan tunggu, file akan diunduh otomatis.',
+          title: "Menyiapkan PDF...",
+          html: "Silakan tunggu, file akan diunduh otomatis.",
           allowOutsideClick: false,
           allowEscapeKey: false,
           didOpen: () => {
             Swal.showLoading();
 
-            const iframe = document.createElement('iframe');
-            iframe.src = url + '&mode=download';
-            iframe.style.width = '0';
-            iframe.style.height = '0';
-            iframe.style.border = 'none';
+            const iframe = document.createElement("iframe");
+            iframe.src = url + "&mode=download";
+            iframe.style.width = "0";
+            iframe.style.height = "0";
+            iframe.style.border = "none";
             document.body.appendChild(iframe);
 
             setTimeout(() => {
               Swal.close();
-              Swal.fire('Selesai', 'PDF berhasil diunduh.', 'success');
+              Swal.fire("Selesai", "PDF berhasil diunduh.", "success");
             }, 3000);
-          }
+          },
         });
       } else if (result.dismiss === Swal.DismissReason.cancel) {
         // === Buka halaman print langsung ===
-        window.open(url, '_blank');
+        window.open(url, "_blank");
       }
     });
-
   } catch (err) {
-    console.error('❌ Gagal mengambil data paket', err);
-    Swal.fire('Error', 'Terjadi kesalahan saat mengambil data paket.', 'error');
+    console.error("❌ Gagal mengambil data paket", err);
+    Swal.fire("Error", "Terjadi kesalahan saat mengambil data paket.", "error");
   }
 }
 
 async function addShipment(package_id) {
   try {
-    const response = await fetch(`${baseUrl}/update/sales_package_status/${package_id}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${API_TOKEN}`
-      },
-      body: JSON.stringify({ status_id: 2, user_id: user_id })
-    });
+    const response = await fetch(
+      `${baseUrl}/update/sales_package_status/${package_id}`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${API_TOKEN}`,
+        },
+        body: JSON.stringify({ status_id: 2, user_id: user_id }),
+      }
+    );
 
     const result = await response.json();
     const data = result?.data;
 
     if (response.ok && data?.success) {
       Swal.fire({
-        icon: 'success',
-        title: 'Berhasil',
+        icon: "success",
+        title: "Berhasil",
         text: `Paket berhasil diubah menjadi shipment.\nNomor: ${data.no_shipment}`,
       });
       fetchAndUpdateData();
       return data;
     } else {
-      throw new Error(data?.message || 'Gagal memperbarui status');
+      throw new Error(data?.message || "Gagal memperbarui status");
     }
   } catch (err) {
     Swal.fire({
-      icon: 'error',
-      title: 'Gagal',
-      text: err.message || 'Terjadi kesalahan saat menghubungi server',
+      icon: "error",
+      title: "Gagal",
+      text: err.message || "Terjadi kesalahan saat menghubungi server",
     });
   }
 }
 
-
-
-
+const ctx = document.getElementById("projectChart").getContext("2d");
+const projectChart = new Chart(ctx, {
+  type: "bar",
+  data: {
+    labels: ["Jasa Tukang", "Material Baja Ringan", "Sewa Alat Berat"],
+    datasets: [
+      {
+        label: "Value Project",
+        data: [200000000, 75000000, 30000000],
+        backgroundColor: "rgba(59, 130, 246, 0.6)", // blue-500
+        borderColor: "rgba(59, 130, 246, 1)",
+        borderWidth: 1,
+      },
+      {
+        label: "Planned Costing",
+        data: [135000000, 60000000, 25000000],
+        backgroundColor: "rgba(16, 185, 129, 0.6)", // green-500
+        borderColor: "rgba(16, 185, 129, 1)",
+        borderWidth: 1,
+      },
+      {
+        label: "Actual Cost",
+        data: [100000000, 58000000, 20000000],
+        backgroundColor: "rgba(239, 68, 68, 0.6)", // red-500
+        borderColor: "rgba(239, 68, 68, 1)",
+        borderWidth: 1,
+      },
+    ],
+  },
+  options: {
+    responsive: true,
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: {
+          callback: function (value) {
+            return "Rp " + value.toLocaleString("id-ID");
+          },
+        },
+        title: {
+          display: true,
+          text: "Nilai (Rp)",
+        },
+      },
+    },
+    plugins: {
+      tooltip: {
+        callbacks: {
+          label: function (context) {
+            return `${
+              context.dataset.label
+            }: Rp ${context.parsed.y.toLocaleString("id-ID")}`;
+          },
+        },
+      },
+    },
+  },
+});

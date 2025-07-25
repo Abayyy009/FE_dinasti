@@ -25,13 +25,13 @@ document.getElementById('logout').addEventListener('click', function () {
 });
 
 
-if (owner_id || user_id || level || username) {
-    const welcomeMessageSpan = document.getElementById('nameUser');
-    welcomeMessageSpan.textContent = `Hi, ${username} 👋`;
-}
+// if (owner_id || user_id || level || username) {
+//     const welcomeMessageSpan = document.getElementById('nameUser');
+//     welcomeMessageSpan.textContent = `Hi, ${username} 👋`;
+// }
 
 expandSidebar();
-loadBadge();
+
 
 function collapseSidebar() {
     const sidebar = document.getElementById('sidebar');
@@ -125,36 +125,36 @@ function collapseSidebar() {
       }
     });
 
-async function loadBadge() {
-  const badgeConfigs = [
-    { id: 'salesQtyBadge', endpoint: 'counting/sales_pending' },
-    { id: 'receiptQtyBadge', endpoint: 'counting/sales_receipt_unvalid' },
-    { id: 'packedQtyBadge', endpoint: 'counting/sales_package_unpack' },
-    { id: 'shipmentQtyBadge', endpoint: 'counting/sales_package_unshipped' },
-  ];
+// async function loadBadge() {
+//   const badgeConfigs = [
+//     { id: 'salesQtyBadge', endpoint: 'counting/sales_pending' },
+//     { id: 'receiptQtyBadge', endpoint: 'counting/sales_receipt_unvalid' },
+//     { id: 'packedQtyBadge', endpoint: 'counting/sales_package_unpack' },
+//     { id: 'shipmentQtyBadge', endpoint: 'counting/sales_package_unshipped' },
+//   ];
 
-  for (const config of badgeConfigs) {
-    try {
-      const response = await fetch(`${baseUrl}/${config.endpoint}/${owner_id}`, {
-        headers: {
-          'Authorization': `Bearer ${API_TOKEN}`
-        }
-      });
+//   for (const config of badgeConfigs) {
+//     try {
+//       const response = await fetch(`${baseUrl}/${config.endpoint}/100`, {
+//         headers: {
+//           'Authorization': `Bearer ${API_TOKEN}`
+//         }
+//       });
 
-      const data = await response.json();
-      const total = data?.countData?.total || 0;
+//       const data = await response.json();
+//       const total = data?.countData?.total || 0;
 
-      const badge = document.getElementById(config.id);
-      if (badge) {
-        badge.textContent = total;
-        badge.style.display = total > 0 ? 'inline-block' : 'none';
-      }
-    } catch (error) {
-      console.error(`Gagal memuat data untuk ${config.id}:`, error);
-    }
-  }
-}
+//       const badge = document.getElementById(config.id);
+//       if (badge) {
+//         badge.textContent = total;
+//         badge.style.display = total > 0 ? 'inline-block' : 'none';
+//       }
+//     } catch (error) {
+//       console.error(`Gagal memuat data untuk ${config.id}:`, error);
+//     }
+//   }
+// }
 
 
 
-setInterval(loadBadge, 1000);
+// setInterval(loadBadge, 1000);

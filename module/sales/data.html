@@ -15,12 +15,12 @@
         </svg>
       </div>
       <div class="flex gap-2">
-        <button
+        <button id="addButton"
           class="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
           </svg>
-          New Project
+          New Sales
         </button>
         <button
           class="flex items-center gap-2 bg-white hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg border border-gray-300 transition-colors">
@@ -35,7 +35,7 @@
   </div>
   <div class="overflow-x-auto mt-6">
     <table class="min-w-full text-sm border border-gray-300">
-      <thead class="bg-blue-50">
+      <thead id="tableHeader" class="bg-blue-50">
         <tr>
           <th class="px-4 py-2 border">No</th>
           <th class="px-4 py-2 border">Date</th>
@@ -44,63 +44,17 @@
           <th class="px-4 py-2 border">Amount</th>
           <th class="px-4 py-2 border">Client</th>
           <th class="px-4 py-2 border">Status</th>
-          <th class="px-4 py-2 border">Action</th>
         </tr>
       </thead>
-      <tbody class="bg-white">
-        <!-- Data Dummy -->
-        <tr class="border-t">
-          <td class="px-4 py-2 text-center">1</td>
-          <td class="px-4 py-2">14/07/2025</td>
-          <td class="px-4 py-2">
-            113/QTK/PNP/VI/2025<br />
-            <span class="text-gray-500 text-xs">Created by Alwyn Fitriy</span>
-          </td>
-          <td class="px-4 py-2">Turn Key</td>
-          <td class="px-4 py-2 text-right">5.000.000.000</td>
-          <td class="px-4 py-2">PT PANAH PERAK MEGA SARANA</td>
-          <td class="px-4 py-2">
-            <span class="bg-green-100 text-green-700 px-2 py-1 rounded text-xs">On Going</span>
-          </td>
-          <td class="px-4 py-2 text-center">
-            <button class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs">Action ⏷</button>
-          </td>
-        </tr>
-
-        <tr class="bg-gray-50 border-t">
-          <td class="px-4 py-2 text-center">2</td>
-          <td class="px-4 py-2">08/07/2025</td>
-          <td class="px-4 py-2">
-            112/QTP/PNP/VI/2025<br />
-            <span class="text-gray-500 text-xs">Created by Alwyn Fitriy</span>
-          </td>
-          <td class="px-4 py-2">Material</td>
-          <td class="px-4 py-2 text-right">3.000.000.000</td>
-          <td class="px-4 py-2">PT PANAH PERAK MEGA SARANA</td>
-          <td class="px-4 py-2">
-            <span class="bg-green-100 text-green-700 px-2 py-1 rounded text-xs">On Going</span>
-          </td>
-          <td class="px-4 py-2 text-center">
-            <div class="relative inline-block text-left">
-              <button onclick="toggleDropdown(this)"
-                class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs">
-                Action ⏷
-              </button>
-
-              <!-- Dropdown menu -->
-              <div class="dropdown-menu absolute right-0 mt-2 w-40 bg-white border rounded shadow-lg z-50 hidden">
-                <ul class="text-sm text-left">
-                  <li><a href="#" class="block px-4 py-2 hover:bg-gray-100 text-gray-800">Edit</a></li>
-                  <li><a href="#" class="block px-4 py-2 hover:bg-gray-100 text-red-600">Delete</a></li>
-                  <hr class="my-1 border-t" />
-                  <li><a href="#" class="block px-4 py-2 hover:bg-gray-100 text-yellow-500">On Going</a></li>
-                  <li><a href="#" class="block px-4 py-2 hover:bg-gray-100 text-green-600">Won</a></li>
-                  <li><a href="#" class="block px-4 py-2 hover:bg-gray-100 text-gray-600">Lost</a></li>
-                </ul>
-              </div>
-            </div>
-          </td>
-        </tr>
+      <tbody class="bg-white" id="tableBody">
       </tbody>
     </table>
-    </ </div>
+  </div>
+</div>
+
+<!-- Alpine JS -->
+<script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+<script>
+  // Close dropdowns when clicking anywhere on document
+  
+</script>

@@ -1,61 +1,39 @@
-const mode = 'development'; // development | production
-const baseUrl = mode === 'production'
-  ? 'https://apimki.katib.cloud'
-  : 'https://devngomset.katib.cloud';
-const API_TOKEN = '3ed66de3108ce387e9d134c419c0fdd61687c3b06760419d32493b18366999d2';
+const mode = "development"; // development | production
+const baseUrl =
+  mode === "development"
+    ? "https://devdinasti.katib.cloud"
+    : "https://devdinasti.katib.cloud";
+const API_TOKEN =
+  "e29c2e3db5f5299dc954eae580893689c35ecde79f40213365f56fb54850f9b1";
 let url = null;
-let currentDataSearch = '';
-let currentPeriod = 'weekly'; // default
-let chartType = 'bar'; // default (bisa bar atau line)
-
+let currentDataSearch = "";
+let currentPeriod = "weekly"; // default
+let chartType = "bar"; // default (bisa bar atau line)
 
 const defaultState = {
   currentPage: 1,
   totalPages: 1,
   totalRecords: 0,
-  isSubmitting: false
+  isSubmitting: false,
 };
 
-function modedev(){
-  const devModeElement = document.getElementById('devmode');
-  if (mode === 'development') {
-    devModeElement.classList.remove('hidden');
-    devModeElement.textContent = '';
+function modedev() {
+  const devModeElement = document.getElementById("devmode");
+  if (mode === "development") {
+    devModeElement.classList.remove("hidden");
+    devModeElement.textContent = "";
   }
-};
+}
 
 const state = {
   user: { ...defaultState },
   sales: { ...defaultState },
-  sales_unpaid: { ...defaultState },
-  sales_receipt: { ...defaultState },
-  sales_package: { ...defaultState },
-  package_slip: { ...defaultState },
-  sales_shipment: { ...defaultState },
-  shipment_slip: { ...defaultState },
-  shipment_label: { ...defaultState },
-  product: { ...defaultState },
-  product_bundling: { ...defaultState },
-  client: { ...defaultState },
-  business_category: { ...defaultState }
+  project: { ...defaultState },
 };
 
-const endpoints = ['user',
-                    'sales',
-                    'sales_unpaid',
-                    'sales_receipt',
-                    'sales_package',
-                    'package_slip',
-                    'sales_shipment',
-                    'shipment_slip',
-                    'shipment_label',
-                    'product',
-                    'product_bundling',
-                    'client',
-                    'business_category'
-].reduce((acc, type) => {
+const endpoints = ["user", "sales", "project"].reduce((acc, type) => {
   acc[type] = {
-    table: `${baseUrl}/table/${type}/${owner_id}`,
+    table: `${baseUrl}/table/${type}/100`,
     list: `${baseUrl}/list/${type}/${owner_id}`,
     detail: `${baseUrl}/detail/${type}`,
     update: `${baseUrl}/update/${type}`,
@@ -67,19 +45,43 @@ const endpoints = ['user',
 
 async function fetchData(type, page = 1, id = null) {
   try {
-    let url = id 
-      ? `${endpoints[type].table}/${id}/${page}?search=${currentDataSearch}` 
-      : `${endpoints[type].table}/${page}?search=${currentDataSearch}`;
-    // console.log(url);
+    let url = id
+      ? `${endpoints[type].table}/${id}/${page}`
+      : `${endpoints[type].table}/${page}`;
+
+    if (currentDataSearch && currentDataSearch.trim() !== "") {
+      url += `?search=${encodeURIComponent(currentDataSearch.trim())}`;
+    }
+
+    console.log("[fetchData] Final URL:", url); // ✅ Debug URL
+
     const response = await fetch(url, {
-      headers: { 'Authorization': `Bearer ${API_TOKEN}` }
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${API_TOKEN}`,
+      },
     });
-    
-    if (!response.ok) throw new Error('Network response was not ok');
-    return await response.json();
+
+    if (!response.ok) throw new Error("Network response was not ok");
+
+    const json = await response.json();
+    console.log("[fetchData] Response JSON:", json); // ✅ Debug JSON response
+
+    // Kondisi: respons bisa dari sales (pakai json.data.records) atau project (pakai json.tableData)
+    const isProject = Array.isArray(json.tableData);
+
+    return {
+      tableData: isProject ? json.tableData : json?.data?.records || [],
+      totalRecords: isProject
+        ? json.totalRecords
+        : json?.data?.totalRecords || json?.data?.records?.length || 0,
+      totalPages: isProject ? json.totalPages : json?.data?.totalPages || 1,
+      currentPage: isProject ? json.currentPage : json?.data?.currentPage || 1,
+    };
   } catch (error) {
     console.error(`Error fetching ${type} data:`, error);
-    return { data: [], totalRecords: 0, totalPages: 0 };
+    return { tableData: [], totalRecords: 0, totalPages: 0, currentPage: 1 };
   }
 }
 
@@ -87,10 +89,11 @@ async function fetchList(type) {
   try {
     const url = `${endpoints[type].list}`;
     const response = await fetch(url, {
-      headers: { 'Authorization': `Bearer ${API_TOKEN}` }
+      headers: { Authorization: `Bearer ${API_TOKEN}` },
     });
 
-    if (!response.ok) throw new Error(`Failed to fetch ${type} data: ${response.statusText}`);
+    if (!response.ok)
+      throw new Error(`Failed to fetch ${type} data: ${response.statusText}`);
     const result = await response.json();
     return result;
   } catch (error) {
@@ -102,9 +105,9 @@ async function fetchList(type) {
 async function fetchById(type, id) {
   try {
     const response = await fetch(`${endpoints[type].detail}/${id}`, {
-      headers: { 'Authorization': `Bearer ${API_TOKEN}` }
+      headers: { Authorization: `Bearer ${API_TOKEN}` },
     });
-    if (!response.ok) throw new Error('Network response was not ok');
+    if (!response.ok) throw new Error("Network response was not ok");
     return await response.json();
   } catch (error) {
     console.error(`Error fetching ${type} by ID:`, error);
@@ -115,13 +118,13 @@ async function fetchById(type, id) {
 async function updateData(type, id, payload) {
   try {
     const response = await fetch(`${endpoints[type].update}/${id}`, {
-      method: 'PUT',
+      method: "PUT",
       headers: {
-        'Authorization': `Bearer ${API_TOKEN}`
+        Authorization: `Bearer ${API_TOKEN}`,
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
     });
-    if (!response.ok) throw new Error('Network response was not ok');
+    if (!response.ok) throw new Error("Network response was not ok");
     return await response.json();
   } catch (error) {
     console.error(`Error updating ${type} data:`, error);
@@ -133,15 +136,15 @@ async function createData(type, payload) {
   try {
     const body = JSON.stringify({ owner_id, ...payload });
     const response = await fetch(`${endpoints[type].create}`, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Authorization': `Bearer ${API_TOKEN}`,
-        'Content-Type': 'application/json'
+        Authorization: `Bearer ${API_TOKEN}`,
+        "Content-Type": "application/json",
       },
-      body: body
+      body: body,
     });
 
-    if (!response.ok) throw new Error('Network response was not ok');
+    if (!response.ok) throw new Error("Network response was not ok");
     return await response.json();
   } catch (error) {
     console.error(`Error creating ${type}:`, error);
@@ -151,43 +154,43 @@ async function createData(type, payload) {
 
 async function createDataWithFile(type, payload) {
   try {
-      const formDataFile = new FormData();
+    const formDataFile = new FormData();
 
-      // Append all payload fields to FormData
-      for (const key in payload) {
-          formDataFile.append(key, payload[key]);
-      }
+    // Append all payload fields to FormData
+    for (const key in payload) {
+      formDataFile.append(key, payload[key]);
+    }
 
-      // Append owner_id separately if needed
-      if (owner_id) {
-          formDataFile.append("owner_id", owner_id);
-      }
+    // Append owner_id separately if needed
+    if (owner_id) {
+      formDataFile.append("owner_id", owner_id);
+    }
 
-      const response = await fetch(`${endpoints[type].create}`, {
-          method: "POST",
-          headers: {
-              "Authorization": `Bearer ${API_TOKEN}`
-              // **DO NOT** manually set `Content-Type`, the browser will handle it automatically
-          },
-          body: formDataFile
-      });
+    const response = await fetch(`${endpoints[type].create}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${API_TOKEN}`,
+        // **DO NOT** manually set `Content-Type`, the browser will handle it automatically
+      },
+      body: formDataFile,
+    });
 
-      if (!response.ok) throw new Error("Network response was not ok");
-      
-      return await response.json();
+    if (!response.ok) throw new Error("Network response was not ok");
+
+    return await response.json();
   } catch (error) {
-      console.error(`Error creating ${type}:`, error);
-      return null;
+    console.error(`Error creating ${type}:`, error);
+    return null;
   }
 }
 
 async function deleteData(type, id) {
   try {
     const response = await fetch(`${endpoints[type].delete}/${id}`, {
-      method: 'PUT',
-      headers: { 'Authorization': `Bearer ${API_TOKEN}` }
+      method: "PUT",
+      headers: { Authorization: `Bearer ${API_TOKEN}` },
     });
-    if (!response.ok) throw new Error('Network response was not ok');
+    if (!response.ok) throw new Error("Network response was not ok");
     return await response.json();
   } catch (error) {
     console.error(`Error deleting ${type}:`, error);
