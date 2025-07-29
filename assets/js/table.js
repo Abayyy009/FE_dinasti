@@ -137,6 +137,8 @@ function loadData() {
   dataItems.forEach((item, index) => {
     const row = document.createElement("tr");
 
+    row.setAttribute("data-index", index);
+
     const html = window.rowTemplate(item, index);
     const hasDropdown = html.includes("dropdown-menu");
     const action = hasDropdown;
@@ -148,9 +150,7 @@ function loadData() {
         "transition",
         "relative"
       );
-      row.onclick = function (e) {
-        toggleDropdown(this, e);
-      };
+      row.onclick = (e) => toggleDropdown(e, row.dataset.index);
     }
 
     row.innerHTML = html;
@@ -467,7 +467,7 @@ function handleCreateFile(formDataFile, detail_id) {
       showErrorAlert("Gagal menyimpan data. Silakan cek inputan.");
     });
 }
-    
+
 function handleCreateResponse(data, detail_id) {
   const message = data.message; // ✅ Ambil dari root, bukan dari data.data.message
   const isSuccess = message === "Data successfully added";
@@ -556,7 +556,7 @@ function handleDeleteResponse(data) {
 // UPDATE DATA FUNCTIONS
 // ---------------------------------------
 
-async function handleEdit(Id, Data, tab) {
+async function handleEdit() {
   const updateUrl = endpoints[currentDataType].detail;
   const fullUrl = `${updateUrl}/${Id}`;
 

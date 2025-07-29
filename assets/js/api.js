@@ -29,19 +29,23 @@ const state = {
   user: { ...defaultState },
   sales: { ...defaultState },
   project: { ...defaultState },
+  sales_detail: { ...defaultState },
 };
 
-const endpoints = ["user", "sales", "project"].reduce((acc, type) => {
-  acc[type] = {
-    table: `${baseUrl}/table/${type}/100`,
-    list: `${baseUrl}/list/${type}/${owner_id}`,
-    detail: `${baseUrl}/detail/${type}`,
-    update: `${baseUrl}/update/${type}`,
-    create: `${baseUrl}/add/${type}`,
-    delete: `${baseUrl}/delete/${type}`,
-  };
-  return acc;
-}, {});
+const endpoints = ["user", "sales", "project", "sales_detail"].reduce(
+  (acc, type) => {
+    acc[type] = {
+      table: `${baseUrl}/table/${type}/100`,
+      list: `${baseUrl}/list/${type}/${owner_id}`,
+      detail: `${baseUrl}/detail/${type}`,
+      update: `${baseUrl}/update/${type}`,
+      create: `${baseUrl}/add/${type}`,
+      delete: `${baseUrl}/delete/${type}`,
+    };
+    return acc;
+  },
+  {}
+);
 
 async function fetchData(type, page = 1, id = null) {
   try {

@@ -44,11 +44,23 @@
           <th class="px-4 py-2 border">Amount</th>
           <th class="px-4 py-2 border">Client</th>
           <th class="px-4 py-2 border">Status</th>
+          <th class="px-4 py-2 border">Revision Status</th>
         </tr>
       </thead>
       <tbody class="bg-white" id="tableBody">
       </tbody>
     </table>
+    <!-- Container Pagination -->
+    <div id="pagination" class="w-full mt-4"></div>
+
+    <!-- Versi Mobile (Dropdown Pilihan Halaman) -->
+    <div class="block md:hidden mt-2">
+      <label for="pageSelect" class="text-sm text-gray-700">Pilih Halaman:</label>
+      <select id="pageSelect"
+        class="w-full mt-1 border border-gray-300 rounded p-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400">
+        <!-- Diisi secara dinamis lewat JS -->
+      </select>
+    </div>
   </div>
 </div>
 
@@ -56,5 +68,5 @@
 <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
 <script>
   // Close dropdowns when clicking anywhere on document
-  
+
 </script>

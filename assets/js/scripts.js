@@ -164,6 +164,7 @@ function loadModuleContent(module, Id, Detail) {
   showLoading();
   setActiveMenu(module);
   currentDataSearch = "";
+
   fetch(`./module/${module}/data.html?v=${new Date().getTime()}`)
     .then((response) => {
       if (!response.ok) {
@@ -174,17 +175,31 @@ function loadModuleContent(module, Id, Detail) {
     .then((data) => {
       document.getElementById("content").innerHTML = data;
 
+      // ✅ Simpan data detail ke global
       if (data.trim() !== "") {
         window.detail_id = Id;
         window.detail_desc = Detail;
+
+        if (module === "sales_detail") {
+          window.pesanan_id = Id;
+        }
       }
 
+      // ✅ Load script dinamis
       if (currentScript) {
         document.body.removeChild(currentScript);
       }
 
       currentScript = document.createElement("script");
       currentScript.src = `./module/${module}/script.js?v=${new Date().getTime()}`;
+      
+      currentScript.onload = () => {
+        hideLoading(); // ✅ Sembunyikan loading setelah script selesai dimuat
+      };
+      currentScript.onerror = () => {
+        console.error(`Gagal memuat script: ${module}/script.js`);
+        hideLoading();
+      };
       document.body.appendChild(currentScript);
     })
     .catch((error) => {
@@ -192,8 +207,8 @@ function loadModuleContent(module, Id, Detail) {
       document.getElementById(
         "content"
       ).innerHTML = `<p>Error loading module ${module}</p>`;
+      hideLoading(); // ✅ Tetap sembunyikan loading jika terjadi error
     });
-  hideLoading();
 }
 
 function collapseSidebar() {

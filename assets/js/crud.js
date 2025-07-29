@@ -136,6 +136,17 @@ async function fetchAndUpdateData(id = null) {
     dataItems = response.tableData;
     renderTable(dataItems);
 
+    // Bind click listener ke tiap baris
+    setTimeout(() => {
+      document.querySelectorAll(".row-click-target").forEach((row) => {
+        row.addEventListener("click", (e) => {
+          e.stopPropagation(); // ✅ Sekarang ini valid
+          const index = row.getAttribute("data-index");
+          toggleDropdown(e, index);
+        });
+      });
+    }, 0);
+
     state[currentDataType].totalPages = response.totalPages || 1;
     state[currentDataType].totalRecords = response.totalRecords || 0;
 
