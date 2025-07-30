@@ -40,7 +40,8 @@ async function renderSalesRecap() {
       100
     ).toFixed(1)}% to achieve`;
 
-    /* ==================== BAR CHART ==================== */
+    /* ====== CHART ====== */
+    /* ==================== CHART: BAR + LINE (TREND) ==================== */
     const colors = [
       "#1e40af",
       "#3b82f6",
@@ -50,32 +51,66 @@ async function renderSalesRecap() {
       "#ef4444",
     ];
 
-    const datasets = chart.types.map((type, idx) => ({
-      label: type,
-      data: table.rows.map((row) => row[type] || 0),
+    // Ambil daftar kolom type (tanpa month & total)
+    const typeCols = table.columns.filter(
+      (c) => c.key !== "month" && c.key !== "total"
+    );
+    const labels = table.rows.map((r) => r.month);
+
+    // Dataset bar per type
+    const barDatasets = typeCols.map((col, idx) => ({
+      type: "bar",
+      label: col.label,
+      data: table.rows.map((r) => r[col.key] || 0),
       backgroundColor: colors[idx % colors.length],
       borderRadius: 4,
+      order: 1, // digambar duluan (di bawah garis)
     }));
+
+    // Data garis “Total” per bulan (pakai nilai total dari API jika ada, fallback hitung manual)
+    const monthlyTotals = table.rows.map((r) =>
+      typeof r.total === "number"
+        ? r.total
+        : typeCols.reduce((sum, c) => sum + (r[c.key] || 0), 0)
+    );
+
+    // Dataset line untuk Trend (Total)
+    const trendDataset = {
+      type: "line",
+      label: "Total",
+      data: monthlyTotals,
+      borderColor: "#111827", // gray-900
+      borderWidth: 2,
+      pointRadius: 3,
+      pointHoverRadius: 4,
+      fill: false,
+      tension: 0.25, // sedikit smoothing
+      order: 2, // digambar terakhir (di atas bar)
+    };
 
     const ctxBar = document.getElementById("chartMarketingBar");
     if (ctxBar) {
       new Chart(ctxBar, {
         type: "bar",
         data: {
-          labels: chart.months,
-          datasets: datasets,
+          labels,
+          datasets: [...barDatasets, trendDataset],
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
+          interaction: { mode: "index", intersect: false },
           plugins: {
-            legend: { position: "top", labels: { boxWidth: 12, padding: 20 } },
+            legend: {
+              position: "bottom",
+              labels: { boxWidth: 12, padding: 16 },
+            },
             tooltip: {
               callbacks: {
                 label: (context) =>
-                  `${context.dataset.label}: Rp${context.raw.toLocaleString(
-                    "id-ID"
-                  )}`,
+                  `${context.dataset.label}: Rp${Number(
+                    context.raw || 0
+                  ).toLocaleString("id-ID")}`,
               },
             },
           },
@@ -83,8 +118,10 @@ async function renderSalesRecap() {
             y: {
               beginAtZero: true,
               ticks: {
-                callback: (value) => "Rp" + (value / 1000000).toFixed(1) + "jt",
+                callback: (value) =>
+                  "Rp" + (value / 1_000_000).toFixed(1) + "jt",
               },
+              grid: { drawBorder: false },
             },
             x: { grid: { display: false } },
           },
@@ -92,49 +129,75 @@ async function renderSalesRecap() {
       });
     }
 
-    /* ==================== TABLE ==================== */
+    /* ====== TABLE ====== */
     const tableEl = document.getElementById("salesRecapTable");
-    if (tableEl) {
-      let thead = `<thead class="bg-gray-50"><tr>`;
-      table.columns.forEach((col) => {
-        thead += `<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">${col.label}</th>`;
-      });
-      thead += `</tr></thead>`;
 
-      let tbody = `<tbody class="bg-white divide-y divide-gray-200">`;
+    // Buat header: Bulan jadi kolom
+    let thead = `<thead class="bg-gray-50">
+  <tr>
+    <th class="border px-3 py-2 text-left">Type</th>`;
+    table.rows.forEach((row) => {
+      thead += `<th class="border px-3 py-2">${row.month}</th>`;
+    });
+    thead += `<th class="border px-3 py-2">Total</th></tr></thead>`;
+
+    // Body: type jadi baris
+    let tbody = `<tbody>`;
+    const types = table.columns
+      .filter((c) => c.key !== "month" && c.key !== "total")
+      .map((c) => c.key);
+
+    types.forEach((typeKey) => {
+      tbody += `<tr class="hover:bg-gray-50">
+    <td class="border px-3 py-2 font-medium">${
+      table.columns.find((c) => c.key === typeKey).label
+    }</td>`;
+
+      // Kolom per bulan
       table.rows.forEach((row) => {
-        tbody += `<tr class="hover:bg-gray-50">`;
-        table.columns.forEach((col) => {
-          const val = row[col.key];
-          const isNumber = typeof val === "number";
-          tbody += `<td class="px-6 py-4 whitespace-nowrap text-sm ${
-            col.key === "month" ? "font-medium text-gray-900" : "text-gray-700"
-          }">
-            ${isNumber ? `Rp${val.toLocaleString("id-ID")}` : val}
-          </td>`;
-        });
-        tbody += `</tr>`;
+        const val = row[typeKey] || 0;
+        tbody += `<td class="border px-3 py-2 text-right">Rp${val.toLocaleString(
+          "id-ID"
+        )}</td>`;
       });
 
-      // TOTAL row otomatis
-      tbody += `<tr class="bg-gray-50 font-bold">`;
-      table.columns.forEach((col) => {
-        if (col.key === "month") {
-          tbody += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">TOTAL</td>`;
-        } else {
-          const totalCol = table.rows.reduce(
-            (sum, row) => sum + (row[col.key] || 0),
-            0
-          );
-          tbody += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Rp${totalCol.toLocaleString(
-            "id-ID"
-          )}</td>`;
-        }
-      });
-      tbody += `</tr></tbody>`;
+      // Total per type (baris)
+      const totalType = table.rows.reduce(
+        (sum, row) => sum + (row[typeKey] || 0),
+        0
+      );
+      tbody += `<td class="border px-3 py-2 font-semibold text-right">Rp${totalType.toLocaleString(
+        "id-ID"
+      )}</td>`;
 
-      tableEl.innerHTML = thead + tbody;
-    }
+      tbody += `</tr>`;
+    });
+
+    // Baris TOTAL semua type
+    tbody += `<tr class="bg-gray-100 font-bold">
+  <td class="border px-3 py-2">TOTAL</td>`;
+    table.rows.forEach((row) => {
+      const totalMonth = types.reduce(
+        (sum, typeKey) => sum + (row[typeKey] || 0),
+        0
+      );
+      tbody += `<td class="border px-3 py-2 text-right">Rp${totalMonth.toLocaleString(
+        "id-ID"
+      )}</td>`;
+    });
+
+    // Total keseluruhan
+    const totalAll = types.reduce(
+      (sum, typeKey) =>
+        sum + table.rows.reduce((sub, row) => sub + (row[typeKey] || 0), 0),
+      0
+    );
+    tbody += `<td class="border px-3 py-2 text-right">Rp${totalAll.toLocaleString(
+      "id-ID"
+    )}</td></tr>`;
+    tbody += `</tbody>`;
+
+    tableEl.innerHTML = thead + tbody;
   } catch (err) {
     console.error("Error render Sales Recap:", err);
   }
