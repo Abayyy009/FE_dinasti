@@ -1,187 +1,214 @@
-<div class="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+<div class="w-full mx-auto py-8" id="projectDetailBudgetCashflow">
     <!-- Header -->
-    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+    <div class="flex flex-wrap items-start justify-between mb-4 gap-4">
         <div>
-            <h1 class="text-2xl font-bold text-gray-800">QUOTATION</h1>
-            <div class="text-sm text-gray-600 mt-1">
-                <span id="projectStatus" class="px-2 py-1 rounded bg-blue-100 text-blue-800"></span>
-            </div>
+            <h1 id="formTitle" class="text-2xl font-bold mb-1">TAMBAH SALES</h1>
+            <nav class="text-gray-500 text-sm flex items-center flex-wrap gap-1">
+                <span>Home</span><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+                <span>Penjualan</span><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+                <span class="font-medium">Faktur</span>
+            </nav>
         </div>
-        <div class="text-sm text-gray-700 border border-gray-300 p-4 rounded-lg bg-gray-50">
-            <div class="flex justify-between">
-                <span class="font-semibold w-24">DATE</span>
-                <span id="quotationDate" class="font-medium">-</span>
-            </div>
-            <div class="flex justify-between">
-                <span class="font-semibold w-24">NO</span>
-                <span id="quotationNumber" class="font-medium">-</span>
-            </div>
-            <div class="flex justify-between">
-                <span class="font-semibold w-24">REV</span>
-                <span id="quotationRev" class="font-medium">-</span>
-            </div>
-        </div>
+        <button onclick="loadModuleContent('sales')" class="bg-gray-300 text-sm px-4 py-2 rounded">⬅️ Back</button>
     </div>
 
-    <!-- Action Buttons -->
-    <div class="flex flex-wrap gap-2 mb-6">
-        <button data-module="sales"
-            class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg text-sm font-semibold transition-colors">
-            ⬅ Kembali
-        </button>
-        <button id="printButton"
-            class="px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg text-sm font-semibold transition-colors">
-            🖨️ Cetak
-        </button>
-        <button onclick="loadDetailAndEdit()"
-            class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-semibold">
-            ✏️ Edit
-        </button>
+    <!-- Form + Ringkasan -->
+    <div class="grid grid-cols-1 md:grid-cols-10 gap-6">
+        <!-- Form 70% -->
+        <div class="md:col-span-7 bg-white p-6 rounded shadow space-y-6">
+            <div class="flex items-center justify-between border-b pb-4">
+                <div>
+                    <h2 class="text-xl font-bold">🧾 Tambah Sales</h2>
+                </div>
+                <img src="../../assets/img/cropped-logo.png" class="h-12" />
+            </div>
 
-        <button id="addButton"
-            class="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-semibold transition-colors">
-            ➕ Tambah Item
-        </button>
-    </div>
 
-    <!-- Project Info -->
-    <div class="bg-blue-50 rounded-lg p-4 mb-6">
-        <div class="grid md:grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                <div>
+                    <label class="block text-sm font-medium">Tanggal</label>
+                    <input type="date" id="tanggal" name="tanggal" class="w-full border px-3 py-2 rounded" />
+                </div>
+
+                <!-- Sales Type -->
+                <div>
+                    <label class="block text-sm font-medium">Sales Type</label>
+                    <select id="type_id" name="type_id" onclick="loadSalesType()"
+                        class="w-full border px-3 py-2 rounded">
+                        <option value="">Pilih Tipe</option>
+                    </select>
+                </div>
+
+                <!-- No Quotation -->
+                <div>
+                    <label class="block text-sm font-medium">No Quotation</label>
+                    <input type="text" id="no_qtn" name="no_qtn" class="w-full border px-3 py-2 rounded bg-gray-100"
+                        readonly />
+                </div>
+
+                <!-- Nama Project -->
+                <div>
+                    <label class="block text-sm font-medium">Nama Project</label>
+                    <input type="text" id="project_name" name="project_name" class="w-full border px-3 py-2 rounded" />
+                </div>
+
+                <!-- Client -->
+                <div>
+                    <label class="block text-sm font-medium">Client</label>
+                    <input type="text" id="client" name="client" class="w-full border px-3 py-2 rounded" />
+                </div>
+
+                <!-- Nominal Kontrak -->
+                <!-- Nominal Kontrak -->
+                <div>
+                    <label class="block text-sm font-medium">Nominal Kontrak</label>
+                    <input type="text" id="contract_amount" class="formatRupiah w-full border px-3 py-2 rounded"
+                        value="0" />
+                </div>
+
+
+                <input type="hidden" id="shipping" name="shipping" value="0" />
+
+                <!-- PPN Persen (Hidden or readonly default 11%) -->
+                <input type="hidden" id="ppn_persen" value="11" />
+
+                <!-- PPN (otomatis) -->
+                <div>
+                    <label class="block text-sm font-medium">PPN 11% (Rp)</label>
+                    <input type="text" id="ppn" class="formatRupiah w-full border px-3 py-2 rounded bg-gray-100"
+                        readonly />
+                </div>
+
+                <!-- Total -->
+                <div>
+                    <label class="block text-sm font-medium">Total</label>
+                    <input type="text" id="total"
+                        class="formatRupiah w-full border px-3 py-2 rounded bg-gray-100 font-bold" readonly />
+                </div>
+
+
+                <!-- Status -->
+                <div>
+                    <label class="block text-sm font-medium">Status</label>
+                    <select id="status" name="status" onclick="loadStatusOptions()" onchange="updateRevisionNumber()"
+                        class="w-full border px-3 py-2 rounded">
+                        <option value="">-- Pilih Status --</option>
+                    </select>
+                </div>
+
+
+                <div>
+                    <label class="block text-sm font-medium">Revision Number</label>
+                    <input type="text" id="revision_number" name="revision_number"
+                        class="w-full border px-3 py-2 rounded bg-gray-100" readonly />
+                </div>
+
+                <!-- File Upload -->
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium">File Pendukung</label>
+                    <input type="file" id="file" name="file" class="w-full border px-3 py-2 rounded" />
+                </div>
+
+                <!-- Hidden user_id -->
+                <input type="hidden" name="user_id" value="100" />
+            </div>
+
+
             <div>
-                <h3 class="font-bold text-blue-800 mb-2">TO</h3>
-                <p id="clientName" class="font-semibold">-</p>
-                <p id="companyName" class="text-gray-600">-</p>
+                <h3 class="text-sm font-semibold mb-2">📦 Daftar Item</h3>
+                <div class="overflow-auto border rounded">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-100">
+                            <tr>
+                                <th class="px-3 py-2 border">#</th>
+                                <th class="px-3 py-2 border text-left">Produk</th>
+                                <th class="px-3 py-2 border text-left">Deksripsi</th>
+                                <th class="px-3 py-2 border text-right">Unit</th>
+                                <th class="px-3 py-2 border text-right">Qty</th>
+                                <th class="px-3 py-2 border text-right">Harga</th>
+                                <th class="px-3 py-2 border text-right">Subtotal</th>
+                                <th class="px-3 py-2 border text-center">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabelItem" class="bg-white"></tbody>
+                    </table>
+                </div>
+                <button onclick="tambahItem()"
+                    class="mt-2 px-4 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700">+
+                    Tambah Item</button>
             </div>
-            <div>
-                <h3 class="font-bold text-blue-800 mb-2">PROJECT DETAILS</h3>
-                <p id="projectName" class="font-medium">-</p>
-                <p id="projectType" class="text-gray-600">-</p>
+
+
+            <!-- Discount -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-sm font-medium">Discount</label>
+                    <input type="text" id="discount" class="formatRupiah w-full border px-3 py-2 rounded" value="0" />
+                </div>
+                <div>
+                    <label class="block text-sm font-medium">📝 Catatan</label>
+                    <textarea id="catatan" rows="3" class="w-full border rounded px-3 py-2"></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium">📌 Syarat & Ketentuan</label>
+                    <textarea id="syarat" rows="3" class="w-full border rounded px-3 py-2"></textarea>
+                </div>
             </div>
-        </div>
-    </div>
 
-    <!-- Items Table -->
-    <div class="overflow-x-auto mb-6">
-        <table class="min-w-full text-sm border border-gray-300">
-            <thead class="bg-blue-50">
-                <tr>
-                    <th class="px-4 py-2 border w-12">No.</th>
-                    <th class="px-4 py-2 border text-left">DESCRIPTION</th>
-                    <th class="px-4 py-2 border w-20">QTY</th>
-                    <th class="px-4 py-2 border w-20">Unit</th>
-                    <th class="px-4 py-2 border w-32">UNIT PRICE</th>
-                    <th class="px-4 py-2 border w-32">TOTAL</th>
-                </tr>
-            </thead>
-            <tbody class="bg-white divide-y divide-gray-200" id="tableBody">
-                <!-- Data akan diisi oleh JavaScript -->
-            </tbody>
-        </table>
-    </div>
+            <div class="mt-4">
+                <label class="block text-sm font-medium">💰 Term of Payment</label>
+                <textarea id="termPayment" rows="2" class="w-full border rounded px-3 py-2"></textarea>
+            </div>
 
-    <!-- Summary -->
-    <div class="flex justify-end">
-        <div class="w-full md:w-1/2">
-            <div class="border border-gray-300 rounded-lg overflow-hidden">
-                <div class="flex justify-between p-3 border-b border-gray-300 bg-gray-50">
-                    <span class="font-semibold">SUBTOTAL</span>
-                    <span id="subtotal" class="font-medium">Rp 0</span>
-                </div>
-                <div class="flex justify-between p-3 border-b border-gray-300">
-                    <span class="font-semibold">DISCOUNT</span>
-                    <span id="disc" class="font-medium">Rp 0</span>
-                </div>
-                <div class="flex justify-between p-3 border-b border-gray-300">
-                    <span class="font-semibold">SHIPPING</span>
-                    <span id="shipping" class="font-medium">Rp 0</span>
-                </div>
-                <div class="flex justify-between p-3 border-b border-gray-300">
-                    <span class="font-semibold">TAX (PPN)</span>
-                    <span id="ppn" class="font-medium">Rp 0</span>
-                </div>
-                <div class="flex justify-between p-3 bg-blue-50 font-bold">
-                    <span>TOTAL</span>
-                    <span id="total" class="text-blue-700">Rp 0</span>
-                </div>
+
+
+
+            <div class="text-right pt-4 border-t">
+
             </div>
         </div>
-    </div>
-</div>
 
-<!-- Edit Modal -->
-<div id="editSalesModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
-    <div class="bg-white w-full max-w-4xl rounded-xl shadow-lg p-6 relative overflow-y-auto max-h-[90vh]">
-        <h2 class="text-xl font-bold mb-4">Edit Sales Detail</h2>
-        <button onclick="closeEditModal()"
-            class="absolute top-4 right-4 text-gray-500 hover:text-red-500 text-2xl">&times;</button>
-
-        <form id="editSalesForm" class="space-y-4">
-            <input type="hidden" id="editPesananId" />
-            <input id="editOwnerId" type="hidden" value="100" />
-            <input id="editUserId" type="hidden" value="100" />
-            <!-- <input id="editNoQtn" type="hidden" /> -->
-            <input id="editTypeId" type="hidden" />
-            <input id="editOrderDate" type="hidden" />
-
-            <div class="grid md:grid-cols-2 gap-4">
-                <input id="editTypeId" type="hidden" />
-                <div>
-                    <label class="font-semibold">No Quotation</label>
-                    <input type="text" id="editNoQtn" class="w-full border rounded p-2" readonly />
-                </div>
-                <div>
-                    <label class="font-semibold">Project Name</label>
-                    <input type="text" id="editProjectName" class="w-full border rounded p-2" />
-                </div>
-                <div>
-                    <label class="font-semibold">Pelanggan</label>
-                    <input type="text" id="editPelangganNama" class="w-full border rounded p-2" />
-                </div>
-                <div>
-                    <label class="font-semibold">Tanggal</label>
-                    <input type="date" id="editTanggal" class="w-full border rounded p-2" readonly />
-                </div>
-                <div>
-                    <label class="font-semibold">Contract Amount</label>
-                    <input type="number" id="editContractAmount" class="w-full border rounded p-2" />
-                </div>
-                <div>
-                    <label class="font-semibold">Discount</label>
-                    <input type="number" id="editDisc" class="w-full border rounded p-2" />
-                </div>
-                <div>
-                    <label class="font-semibold">Shipping</label>
-                    <input type="number" id="editShipping" class="w-full border rounded p-2" />
-                </div>
-                <div>
-                    <label class="font-semibold">PPN</label>
-                    <input type="number" id="editPpn" class="w-full border rounded p-2" />
-                </div>
-                <div>
-                    <label class="font-semibold">Total</label>
-                    <input type="number" id="editTotal" class="w-full border rounded p-2" />
-                </div>
-                <div>
-                    <label class="block text-sm mb-1">Status</label>
-                    <select id="editStatusId" class="border p-2 rounded w-full"></select>
-                </div>
-                <div>
-                    <label class="block text-sm mb-1 mt-3">Revision Status</label>
-                    <input id="editStatusRevision" type="text" class="border p-2 rounded w-full bg-gray-100" readonly />
-                </div>
+        <!-- Ringkasan 30% -->
+        <div class="md:col-span-3 bg-gray-50 p-4 rounded shadow space-y-4">
+            <button onclick="sendWhatsAppInvoice()"
+                class="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm">📲 Kirim via
+                WhatsApp</button>
+            <button onclick="printInvoice(detail_id)"
+                class="w-full bg-gray-700 hover:bg-gray-800 text-white px-4 py-2 rounded text-sm">📄 Download
+                PDF</button>
+            <button onclick="submitInvoice()"
+                class="w-full bg-green-700 hover:bg-green-800 text-white px-4 py-2 rounded text-sm">💾 Simpan</button>
+            <button onclick="updateInvoice()"
+                class="w-full bg-yellow-700 hover:bg-yellow-800 text-white px-4 py-2 rounded text-sm hidden">🔄
+                Update</button>
+            <h4 class="font-semibold">💡 Ringkasan</h4>
+            <div class="text-sm space-y-2">
+                <p><span class="text-gray-500">Subtotal:</span> <span id="subtotal" class="float-right">0</span></p>
+                <p><span class="text-gray-500">Diskon:</span> <span id="diskon" class="float-right">0</span></p>
+                <p><span class="text-gray-500">Pajak (0%):</span> <span id="pajak" class="float-right">0</span></p>
+                <hr />
+                <p class="font-bold text-green-600">Total: <span id="total" class="float-right">0</span></p>
+                <p class="font-bold text-gray-600">Total Tagihan: <span id="paymentTotalInvoice"
+                        class="float-right">-</span>
+                </p>
+                <p class="font-bold text-gray-600">Total Dibayar: <span id="paymentTotalPaid"
+                        class="float-right">-</span></p>
+                <p class="font-bold text-gray-600">Sisa Tagihan: <span id="paymentRemaining"
+                        class="float-right text-red-600">-</span></p>
             </div>
+            <!-- List Pembayaran -->
+            <div id="listPembayaran" class="space-y-2 mt-3"></div>
 
-            <hr class="my-4" />
-            <h3 class="text-lg font-bold">Item List</h3>
-            <div id="itemContainer" class="space-y-4"></div>
-            <button type="button" onclick="addItemField()" class="mt-2 bg-green-600 text-white px-3 py-1 rounded">+
-                Tambah Item</button>
 
-            <div class="flex justify-end pt-4">
-                <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-                    Simpan Perubahan
-                </button>
-            </div>
-        </form>
+
+
+
+
+        </div>
     </div>
 </div>

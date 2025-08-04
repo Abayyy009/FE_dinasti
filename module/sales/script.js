@@ -1,319 +1,438 @@
-pagemodule = "sales";
-colSpanCount = 8;
+pagemodule = "Sales";
+colSpanCount = 9;
 setDataType("sales");
-window.statusSalesMap = {};
-async function init() {
-  await loadStatusSalesMap(); // ambil data status -> status_id: status_sales
-  fetchAndUpdateData(); // lalu fetch data utama
+fetchAndUpdateData();
+
+function validateFormData(formData, requiredFields = []) {
+  console.log("Validasi Form");
+  for (const { field, message } of requiredFields) {
+    if (!formData[field] || formData[field].trim() === "") {
+      alert(message);
+      return false;
+    }
+  }
+  return true;
 }
-init();
 
-typeList = [];
+async function fillFormData(data) {
+  // Helper untuk menunggu sampai <option> tersedia
+  async function waitForOption(selectId, expectedValue, timeout = 3000) {
+    return new Promise((resolve) => {
+      const interval = 100;
+      let waited = 0;
 
-document.getElementById("addButton").addEventListener("click", () => {
-  showFormModal(); // Tampilkan form modal
-  loadProjectType(); // Baru ambil dan isi dropdown setelah form ada
-  loadDropdownCall();
-});
+      const check = () => {
+        const select = document.getElementById(selectId);
+        const exists = Array.from(select.options).some(
+          (opt) => opt.value === expectedValue?.toString()
+        );
+        if (exists || waited >= timeout) {
+          resolve();
+        } else {
+          waited += interval;
+          setTimeout(check, interval);
+        }
+      };
+
+      check();
+    });
+  }
+
+  // Pastikan value bertipe string
+  const projectValue = data.pesanan_id?.toString() || "";
+  const pmValue = data.project_manager_id?.toString() || "";
+
+  // Tunggu sampai option-nya ada
+  await waitForOption("formProject", projectValue);
+  await waitForOption("formPM", pmValue);
+
+  // Set nilai ke form
+  const formProject = document.getElementById("formProject");
+  const formPM = document.getElementById("formPM");
+  formProject.value = projectValue;
+  formPM.value = pmValue;
+
+  document.getElementById("formStartDate").value = data.start_date || "";
+  document.getElementById("formDeadline").value = data.deadline || "";
+
+  // Debug log
+  console.log("[fillFormData] formProject set to:", formProject.value);
+  console.log("[fillFormData] formPM set to:", formPM.value);
+}
+
+async function loadDropdown(selectId, apiUrl, valueField, labelField) {
+  const select = document.getElementById(selectId);
+  select.innerHTML = `<option value="">Loading...</option>`;
+
+  try {
+    const response = await fetch(apiUrl, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${API_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    const result = await response.json();
+    console.log(`Data untuk ${selectId}:`, result);
+    const listData = result.listData;
+
+    select.innerHTML = `<option value="">Pilih...</option>`;
+
+    if (Array.isArray(listData)) {
+      listData.forEach((item) => {
+        const option = document.createElement("option");
+        option.value = item[valueField];
+        option.textContent = item[labelField];
+        select.appendChild(option);
+      });
+    } else {
+      console.error("Format listData tidak sesuai:", listData);
+    }
+  } catch (error) {
+    console.error(`Gagal memuat data untuk ${selectId}:`, error);
+    select.innerHTML = `<option value="">Gagal memuat data</option>`;
+  }
+}
+
+function loadDropdownCall() {
+  loadDropdown(
+    "formProject",
+    `${baseUrl}/list/project_won/${owner_id}`,
+    "pesanan_id",
+    "project_name"
+  );
+  loadDropdown(
+    "formPM",
+    `${baseUrl}/list/project_manager/${owner_id}`,
+    "project_manager_id",
+    "name"
+  );
+}
 
 window.rowTemplate = function (item, index, perPage = 10) {
   const { currentPage } = state[currentDataType];
   const globalIndex = (currentPage - 1) * perPage + index + 1;
 
   return `
-    <tr class="hover:bg-gray-50 transition-colors cursor-pointer relative row-click-target" data-index="${index}" onclick="toggleDropdown(event, ${index})">
-      <td class="px-4 py-2 text-center">${globalIndex}</td>
-      <td class="px-4 py-2">${item.tanggal}</td>
-      <td class="px-4 py-2 space-y-1">
+  <tr class="flex flex-col sm:table-row border rounded sm:rounded-none mb-4 sm:mb-0 shadow-sm sm:shadow-none transition hover:bg-gray-50">
+    <td class="px-6 py-4 text-sm border-b sm:border-0 flex justify-between sm:table-cell bg-gray-800 text-white sm:bg-transparent sm:text-gray-700">${globalIndex}</td>  
+    <td class="px-6 py-4 text-sm border-b sm:border-0 flex justify-between sm:table-cell bg-gray-800 text-white sm:bg-transparent sm:text-gray-700">
+      <span class="font-medium sm:hidden">Tanggal</span>
+      ${item.tanggal_invoice}
+    </td>
+  
+    <td class="px-6 py-4 text-sm border-b sm:border-0 flex justify-between sm:table-cell bg-gray-800 text-white sm:bg-transparent sm:text-gray-700">
         <div class="text-gray-500 text-xs">${item.no_qtn}</div>
         <div class="font-medium">${item.project_name}</div>
         <div class="text-gray-500 text-xs">${item.user_nama}</div>
-      </td>
-      <td class="px-4 py-2">${item.project_type}</td>
-      <td class="px-4 py-2 text-right">
-  ${formatRupiah(item?.contract_amount)}
-</td>
+    </td>
+  
+    <td class="px-6 py-4 text-sm text-gray-700 border-b text-right sm:border-0 flex justify-between sm:table-cell">
+      <span class="font-medium sm:hidden">Sisa Bayar</span>
+      ${item.project_type}
+    </td>
+  
+    <td class="px-6 py-4 text-sm text-gray-700 border-b text-right sm:border-0 flex justify-between sm:table-cell">
+      <span class="font-medium sm:hidden">Sisa Bayar</span>
+      ${formatRupiah(item.contract_amount)}
+    </td>
 
-
-      <td class="px-4 py-2">${item.pelanggan_nama}</td>
-      <td class="px-4 py-2 relative">
-        <span class="${getStatusColorClass(
-          item.status_id
-        )} px-2 py-1 rounded text-xs">
-        ${window.statusSalesMap[Number(item.status_id)] || "Unknown"}
+    <td class="px-6 py-4 text-sm text-gray-700 border-b sm:border-0 flex justify-between sm:table-cell">
+      <span class="font-medium sm:hidden">PIC</span>
+      ${item.pelanggan_nama}
+    </td>
+  
+    <td class="px-6 py-4 text-center text-sm text-gray-700 flex justify-between sm:table-cell">
+      <span class="font-medium sm:hidden">Status</span>
+      <span class="${getStatusClass(
+        item.status
+      )}  px-2 py-1 rounded-full text-xs font-medium">
+        ${item.status}
       </span>
+      <div class="dropdown-menu hidden fixed w-48 bg-white border rounded shadow z-50 text-sm">
+        <button onclick="event.stopPropagation(); loadModuleContent('sales_detail', '${
+          item.pesanan_id
+        }', '${
+    item.no_qtn
+  }');" class="block w-full text-left px-4 py-2 hover:bg-gray-100">
+          👁️ View Order
+        </button>
+    ${
+      item.status_id === 2 || item.status_id === 6
+        ? `
+      <button onclick="event.stopPropagation(); addPayment('${item.pesanan_id}', '${item.remaining_payment}');" class="block w-full text-left px-4 py-2 hover:bg-gray-100">
+        💰 Add Payment
+      </button>
+    `
+        : ""
+    }
 
+    ${
+      item.status_id === 3
+        ? `
+      <button onclick="event.stopPropagation(); addPackage('${item.pesanan_id}');" class="block w-full text-left px-4 py-2 hover:bg-gray-100">
+        📦 Process Package
+      </button>
+    `
+        : ""
+    }
 
-        <div class="dropdown-menu dropdown-menu-${index} hidden absolute right-0 mt-2 z-50 w-44 bg-white border border-gray-200 rounded-md shadow-lg">
-          <a href="#"
-          onclick="event.stopPropagation(); loadModuleContent('sales_detail', '${
-            item.pesanan_id
-          }');"
-          class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-          View Details
-        </a>
-          <a onclick="event.stopPropagation(); handleDelete(${
-            item.pesanan_id
-          })" class="block px-4 py-2 text-sm text-red-600 hover:bg-gray-100">Delete</a>
-      </td>
-     <td class="px-4 py-2">${item.revision_status || item.revision_number}</td>
+    ${
+      item.status_id === 2
+        ? `
+      <button onclick="event.stopPropagation(); handleDelete(${item.pesanan_id})" class="block w-full text-left px-4 py-2 hover:bg-gray-100">
+        🗑 Delete Order
+      </button>
+    `
+        : ""
+    }
 
-    </tr>
-  `;
+      </div>
+    </td>
+    <td class="px-6 py-4 text-sm border-b sm:border-0 flex justify-between sm:table-cell bg-gray-800 text-white sm:bg-transparent sm:text-gray-700">${
+      item.revision_status || item.revision_number
+    }</td>
+  </tr>`;
 };
 
-async function updateStatus(pesananId, newStatus, index) {
-  const updateUrl = `${baseUrl}/update/status_sales/${pesananId}`;
-  const bodyData = JSON.stringify({
-    status_id: newStatus,
-    revision_status: `Revisi ${Date.now()}`, // bisa dynamic atau kosong jika tidak perlu
-  });
+document.getElementById("addButton").addEventListener("click", () => {
+  // showFormModal();
+  // loadDropdownCall();
+  loadModuleContent("sales_detail");
+});
 
+formHtml = ``;
+requiredFields = [
+  { field: "formProject", message: "Project Name is required!" },
+  { field: "formPM", message: "Project Manager is required!" },
+  { field: "formStartDate", message: "Starting Date is required!" },
+  { field: "formDeadline", message: "Deadline is required!" },
+];
+
+async function addPayment(sales_id, nominal) {
   try {
-    const response = await fetch(updateUrl, {
-      method: "PUT",
+    const res = await fetch(`${baseUrl}/list/payment_method/${owner_id}`, {
+      headers: { Authorization: `Bearer ${API_TOKEN}` },
+    });
+
+    const { listData } = await res.json();
+
+    if (!listData || listData.length === 0) {
+      Swal.fire("Gagal", "Tidak ada metode pembayaran tersedia.", "error");
+      return;
+    }
+
+    const optionsHtml = listData
+      .map(
+        (acc) => `
+      <option value="${acc.account_id}">
+        ${acc.account} - ${acc.owner_account} (${acc.number_account})
+      </option>
+    `
+      )
+      .join("");
+
+    const { value: result } = await Swal.fire({
+      title: "Add Payment",
+      html: `<form id="dataform" class="space-y-2" autocomplete="off">
+<strong>Total Tagihan:</strong> ${formatRupiah(nominal)}
+
+  <label for="swal-date" class="block text-sm font-medium text-gray-700 dark:text-gray-200 text-left">Date</label>
+  <input id="swal-date" name="date" type="date" value="${
+    new Date().toISOString().split("T")[0]
+  }" class="form-control w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+
+  <!-- Informasi Total Tagihan -->
+  <div class="text-sm text-left text-gray-600 dark:text-gray-300">
+    
+  </div>
+
+  <div class="flex items-center gap-2">
+    <div class="w-full">
+      <label for="swal-nominal" class="block text-sm font-medium text-gray-700 dark:text-gray-200 text-left">Amount</label>
+      <input id="swal-nominal" name="amount" type="text" class="form-control w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+    </div>
+    <div class="mt-6">
+      <label class="text-xs whitespace-nowrap">
+        <input type="checkbox" id="swal-fullpay" class="mr-1">
+        Full Payment
+      </label>
+    </div>
+  </div>
+
+  <label for="swal-account" class="block text-sm font-medium text-gray-700 dark:text-gray-200 text-left">Account</label>
+  <select id="swal-account" name="account" class="form-control w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 
+         text-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-left">
+    <option value="">--- Pilih Akun Pembayaran ---</option>
+    ${optionsHtml}
+  </select>
+
+  <label for="swal-notes" class="block text-sm font-medium text-gray-700 dark:text-gray-200 text-left">Notes</label>
+  <input id="swal-notes" name="notes" type="text" class="form-control w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+</form>`,
+      focusConfirm: false,
+      showCancelButton: true,
+      confirmButtonText: "Simpan",
+      didOpen: () => {
+        const inputNominal = document.getElementById("swal-nominal");
+        const checkboxFullpay = document.getElementById("swal-fullpay");
+
+        function formatRupiah(value) {
+          const clean = value.replace(/\D/g, "");
+          return clean.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+        }
+
+        inputNominal.addEventListener("input", function () {
+          this.value = formatRupiah(this.value);
+        });
+
+        checkboxFullpay.addEventListener("change", function () {
+          if (this.checked) {
+            inputNominal.value = formatRupiah(nominal.toString());
+          } else {
+            inputNominal.value = "";
+          }
+        });
+      },
+      preConfirm: () => {
+        const date = document.getElementById("swal-date").value;
+        const nominalRaw = document.getElementById("swal-nominal").value;
+        const account_id = document.getElementById("swal-account").value;
+        const notes = document.getElementById("swal-notes").value;
+
+        const numericNominal = parseInt(nominalRaw.replace(/\./g, "")) || 0;
+
+        if (!date || !numericNominal || !account_id) {
+          Swal.showValidationMessage(
+            `Tanggal, nominal, dan akun pembayaran wajib diisi.`
+          );
+          return false;
+        }
+
+        if (numericNominal > nominal) {
+          Swal.showValidationMessage(
+            `Nominal tidak boleh lebih dari Rp ${nominal.toLocaleString(
+              "id-ID"
+            )}`
+          );
+          return false;
+        }
+
+        return {
+          date,
+          nominal: numericNominal,
+          account_id: parseInt(account_id),
+          notes: notes || "-",
+        };
+      },
+    });
+
+    if (!result) return;
+
+    const payload = {
+      owner_id,
+      sales_id,
+      account_id: result.account_id,
+      date: result.date,
+      nominal: result.nominal,
+      notes: result.notes,
+    };
+
+    const resPost = await fetch(`${baseUrl}/add/sales_detail`, {
+      method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${API_TOKEN}`,
       },
-      body: bodyData,
+      body: JSON.stringify(payload),
     });
 
-    const result = await response.json();
+    const data = await resPost.json();
 
-    if (response.ok) {
-      console.log("✅ Status updated:", result);
-
-      // Update label status
-      const dropdown = document.querySelector(`.dropdown-menu-${index}`);
-      if (dropdown) {
-        const statusSpan = dropdown.parentElement.querySelector("span");
-        if (statusSpan) {
-          statusSpan.textContent =
-            window.statusSalesMap[newStatus] || "Unknown";
-
-          statusSpan.className = "";
-          statusSpan.classList.add("px-2", "py-1", "rounded", "text-xs");
-          statusSpan.classList.add(
-            ...getStatusColorClass(newStatus).split(" ")
-          );
-        }
-        dropdown.classList.add("hidden");
-      }
-
-      Swal.fire({
-        icon: "success",
-        title: "Berhasil!",
-        text: "Status berhasil diperbarui.",
-        timer: 2000,
-        showConfirmButton: false,
-      });
+    if (resPost.ok) {
+      Swal.fire("Sukses", "Pembayaran berhasil ditambahkan.", "success");
+      fetchAndUpdateData();
+      // loadSalesBadge();
     } else {
-      console.error("❌ Gagal update status", result);
-      Swal.fire({
-        icon: "error",
-        title: "Gagal",
-        text: result.message || "Gagal memperbarui status.",
-      });
+      Swal.fire(
+        "Gagal",
+        data.message || "Terjadi kesalahan saat menyimpan pembayaran.",
+        "error"
+      );
     }
-  } catch (error) {
-    console.error("❌ Error update status:", error);
-    Swal.fire({
-      icon: "error",
-      title: "Error",
-      text: "Terjadi kesalahan saat mengubah status.",
-    });
+  } catch (err) {
+    console.error(err);
+    Swal.fire("Error", "Terjadi kesalahan saat memproses.", "error");
   }
 }
 
-function getStatusColorClass(status) {
-  switch (Number(status)) {
-    case 1:
-      return "bg-yellow-100 text-yellow-700";
-    case 2:
-      return "bg-green-100 text-green-700";
-    case 3:
-      return "bg-red-100 text-red-700";
-    default:
-      return "bg-gray-100 text-gray-700";
-  }
-}
-
-formHtml = `
-
-<form id="dataform" class="space-y-4 text-center" enctype="multipart/form-data">
-<input type="hidden" name="user_id" value="100" />
-  <!-- Tanggal -->
-  <div>
-    <input type="date" id="tanggal" name="tanggal"
-  class="form-control w-full px-3 py-2 border rounded-md bg-white text-gray-700"
-  placeholder="Tanggal Order"
-  onchange="generateNoQtn()" />
-
-  </div>
-
-  <!-- Tipe Proyek -->
-  <!-- Tipe Proyek (Dynamic from API) -->
-<div>
-  <select id="project_type" onchange="generateNoQtn()" name="type_id"
-    class="form-control w-full px-3 py-2 border rounded-md bg-white text-gray-700">
-    <option value="">Select The Project Type</option>
-    <!-- Dynamic Options Here -->
-  </select>
-</div>
-
-
-  <!-- Nomor Quotation -->
-  <div>
-    <input  id="no_qtn" name="no_qtn" type="text" placeholder="Generate Quotation Number"
-      class="form-control w-full px-3 py-2 border rounded-md bg-white text-gray-700" readonly />
-  </div>
-
-  <!-- Nama Proyek -->
-  <div>
-    <input id="project_name" name="project_name" type="text" placeholder="Fill The Project Name"
-      class="form-control w-full px-3 py-2 border rounded-md bg-white text-gray-700" />
-  </div>
-
-  <!-- Nama Client -->
-  <div>
-    <input id="client" name="client" type="text" placeholder="Who's The Client?"
-      class="form-control w-full px-3 py-2 border rounded-md bg-white text-gray-700" />
-  </div>
-
-  <!-- Upload File -->
-  <div class="text-left text-sm text-red-500">Only .xlsx extension is allowed</div>
-  <div>
-    <input id="file" name="file" type="file" accept=".xlsx"
-      class="form-control w-full px-3 py-2 border rounded-md bg-white text-gray-700" />
-  </div>
-</form>`;
-
-function fillFormData(data) {
-  document.getElementById("tanggal").value = data.tanggal || "";
-
-  document.getElementById("project_type").value = data.project_type || "";
-  generateNoQtn(); // Panggil ulang agar no_qtn bisa tergenerate ulang sesuai tipe jika perlu
-
-  document.getElementById("no_qtn").value = data.no_qtn || "";
-  document.getElementById("project_name").value = data.project_name || "";
-  document.getElementById("amount").value = data.amount || "";
-  document.getElementById("pelanggan_nama").value = data.pelanggan_nama || "";
-
-  // File input tidak bisa di-set value-nya lewat JavaScript karena alasan keamanan.
-  // Jadi kamu bisa tampilkan info file secara terpisah (misal nama file-nya) jika ingin.
-}
-
-window.toggleDropdown = function (event, index) {
-  if (event && typeof event.stopPropagation === "function") {
-    event.stopPropagation();
-  }
-
-  // Sembunyikan semua dropdown lain
-  document.querySelectorAll(".dropdown-menu").forEach((el, i) => {
-    if (!el.classList.contains(`dropdown-menu-${index}`)) {
-      el.classList.add("hidden");
-    }
-  });
-
-  const dropdown = document.querySelector(`.dropdown-menu-${index}`);
-  if (!dropdown) {
-    console.warn("❗ dropdown not found for index:", index);
-    return;
-  }
-
-  // Toggle dropdown target
-  dropdown.classList.toggle("hidden");
-};
-
-// Tutup dropdown saat klik di luar
-document.addEventListener("click", (event) => {
-  if (
-    !event.target.closest(".dropdown-menu") &&
-    !event.target.closest("tr.row-click-target")
-  ) {
-    document.querySelectorAll(".dropdown-menu").forEach((el) => {
-      el.classList.add("hidden");
-    });
-  }
-});
-
-document.addEventListener("DOMContentLoaded", async () => {
-  const select = document.getElementById("project_type");
-  console.log("🔍 Select element found:", select);
-
+async function addPackage(sales_id) {
   try {
-    const response = await fetch("https://devdinasti.katib.cloud/type/sales");
-    const result = await response.json();
+    const { value: result } = await Swal.fire({
+      title: "Tambah Paket Penjualan",
+      html: `
+        <form id="packageForm" class="space-y-3 text-left">
+          <label for="swal-date" class="block text-sm font-medium text-gray-700">Tanggal</label>
+          <input id="swal-date" name="date" type="date" 
+            value="${new Date().toISOString().split("T")[0]}"
+            class="form-control w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
 
-    console.log("📦 Fetched result:", result);
+          <label for="swal-notes" class="block text-sm font-medium text-gray-700">Catatan</label>
+          <textarea id="swal-notes" name="notes"
+            class="form-control w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            rows="3">Di packing ya</textarea>
+        </form>
+      `,
+      focusConfirm: false,
+      showCancelButton: true,
+      confirmButtonText: "Simpan",
+      preConfirm: () => {
+        const date = document.getElementById("swal-date").value;
+        const notes = document.getElementById("swal-notes").value.trim();
 
-    if (result.status_response === "200" && Array.isArray(result.data)) {
-      result.data.forEach((type) => {
-        console.log("🧩 Adding type:", type);
+        if (!date) {
+          Swal.showValidationMessage("Tanggal wajib diisi.");
+          return false;
+        }
 
-        const option = document.createElement("option");
-        option.value = type.kode_type.trim();
-        option.textContent = type.nama_type.trim();
-        select.appendChild(option);
-      });
+        return { date, notes };
+      },
+    });
+
+    if (!result) return;
+
+    const payload = {
+      owner_id,
+      sales_id,
+      date: result.date,
+      notes: result.notes || "-",
+    };
+
+    const res = await fetch(`${baseUrl}/add/sales_package`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${API_TOKEN}`,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await res.json();
+
+    if (res.ok) {
+      Swal.fire("Sukses", "Paket berhasil ditambahkan.", "success");
+      fetchAndUpdateData(); // refresh tampilan jika perlu
     } else {
-      console.error(
-        "❌ Failed to load project types:",
-        result.message || result
+      Swal.fire(
+        "Gagal",
+        data.message || "Terjadi kesalahan saat menambahkan paket.",
+        "error"
       );
     }
   } catch (error) {
-    console.error("🔥 Error fetching project types:", error);
-  }
-});
-
-async function loadProjectType() {
-  try {
-    const response = await fetch(`https://devdinasti.katib.cloud/type/sales`, {
-      headers: { Authorization: `Bearer ${API_TOKEN}` },
-    });
-    const result = await response.json();
-
-    typeList = result.data;
-
-    const select = document.getElementById("project_type");
-    select.innerHTML = "<option disabled selected>Pilih Type</option>";
-
-    result.data.forEach((item) => {
-      const option = document.createElement("option");
-      option.value = item.type_id;
-      option.textContent = `${item.nama_type} (${item.kode_type})`; // ← ini perubahan utamanya
-      select.appendChild(option);
-    });
-
-    console.log("✅ Project type loaded:", typeList);
-  } catch (error) {
-    console.error("❌ Gagal load project type:", error);
-  }
-}
-
-async function loadStatusSalesMap() {
-  try {
-    const response = await fetch(
-      `https://devdinasti.katib.cloud/status/sales`,
-      {
-        headers: { Authorization: `Bearer ${API_TOKEN}` },
-      }
-    );
-    const result = await response.json();
-
-    if (result.response === "200") {
-      result.data.forEach((statusObj) => {
-        window.statusSalesMap[Number(statusObj.status_id)] =
-          statusObj.status_sales;
-      });
-      console.log("✅ Status sales map loaded:", window.statusSalesMap);
-    } else {
-      console.error("❌ Gagal load status sales:", result.message);
-    }
-  } catch (err) {
-    console.error("🔥 Gagal mengambil status sales:", err);
+    console.error(error);
+    Swal.fire("Error", "Terjadi kesalahan saat memproses.", "error");
   }
 }
 
@@ -361,55 +480,32 @@ async function generateNoQtn() {
   }
 }
 
-async function loadStatusSalesMap() {
+document.addEventListener("DOMContentLoaded", async () => {
+  const select = document.getElementById("project_type");
+  console.log("🔍 Select element found:", select);
+
   try {
-    const response = await fetch(
-      `https://devdinasti.katib.cloud/status/sales`,
-      {
-        headers: {
-          Authorization: `Bearer ${API_TOKEN}`,
-        },
-      }
-    );
+    const response = await fetch("https://devdinasti.katib.cloud/type/sales");
     const result = await response.json();
 
-    if (result.response === "200") {
-      result.data.forEach((statusObj) => {
-        // Gunakan Number sebagai key
-        statusSalesMap[Number(statusObj.status_id)] = statusObj.status_sales;
+    console.log("📦 Fetched result:", result);
+
+    if (result.status_response === "200" && Array.isArray(result.data)) {
+      result.data.forEach((type) => {
+        console.log("🧩 Adding type:", type);
+
+        const option = document.createElement("option");
+        option.value = type.kode_type.trim();
+        option.textContent = type.nama_type.trim();
+        select.appendChild(option);
       });
-      console.log("✅ Status sales map loaded:", statusSalesMap);
     } else {
-      console.error("❌ Gagal load status sales:", result.message);
+      console.error(
+        "❌ Failed to load project types:",
+        result.message || result
+      );
     }
-  } catch (err) {
-    console.error("🔥 Gagal mengambil status sales:", err);
+  } catch (error) {
+    console.error("🔥 Error fetching project types:", error);
   }
-}
-function formatRupiah(value, { fallback = "-", withCents = false } = {}) {
-  // Null/undefined → tampilkan fallback
-  if (value === null || value === undefined) return fallback;
-
-  // Jika string, bersihkan karakter non-angka (mis. "Rp 1.500.000")
-  let num = value;
-  if (typeof value === "string") {
-    // ubah "1.500.000,50" → "1500000.50"
-    const cleaned = value
-      .replace(/[^\d,.-]/g, "")
-      .replace(/\./g, "")
-      .replace(",", ".");
-    num = Number(cleaned);
-  } else {
-    num = Number(value);
-  }
-
-  if (!Number.isFinite(num)) return fallback;
-
-  const opts = { style: "currency", currency: "IDR" };
-  if (!withCents) {
-    opts.minimumFractionDigits = 0;
-    opts.maximumFractionDigits = 0;
-  }
-
-  return new Intl.NumberFormat("id-ID", opts).format(num);
-}
+});

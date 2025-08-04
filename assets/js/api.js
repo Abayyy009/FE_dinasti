@@ -9,6 +9,9 @@ let url = null;
 let currentDataSearch = "";
 let currentPeriod = "weekly"; // default
 let chartType = "bar"; // default (bisa bar atau line)
+let STATUS_CACHE = null;
+let OLD_STATUS_LABEL = null;
+let OLD_STATUS_REV = null;
 
 const defaultState = {
   currentPage: 1,

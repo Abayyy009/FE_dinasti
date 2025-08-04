@@ -1,845 +1,882 @@
-/*********************
- * CONFIG & GLOBALS
- *********************/
-pagemodule = "Sales Detail";
-console.log(pagemodule);
-setDataType("sales_detail");
+pagemoduleparent = "sales";
 
-// Endpoint status (sesuaikan bila beda)
-STATUS_ENDPOINT = "https://devdinasti.katib.cloud/status/sales";
+setTodayDate();
+loadCustomerList();
+// Harus di atas, sebelum loadSalesType dipanggil
+typeLoaded = false;
+statusLoaded = false;
+oldStatusText = "On Going"; // misalnya status sebelum diedit
+lastRevision = 0;
 
-STATUS_CACHE = null;
-OLD_STATUS_LABEL = null; // label status lama (mis: "On Going", "WON", "LOSE")
-OLD_STATUS_REV = null; // contoh: "WON R1", "LOSE R2"
+loadProdukList();
+formatNumberInputs();
+document.getElementById("tanggal").addEventListener("change", tryGenerateNoQtn);
+document.getElementById("type_id").addEventListener("change", tryGenerateNoQtn);
 
-/*********************
- * HELPERS
- *********************/
-function setVal(id, value, mode = "value") {
-  const el = document.getElementById(id);
-  if (!el) {
-    console.warn(`[setVal] #${id} tidak ditemukan`);
-    return false;
-  }
-  if (mode === "text") el.textContent = value ?? "";
-  else el.value = value ?? "";
-  console.log(`[setVal] #${id} <-`, value);
-  return true;
+if (window.detail_id && window.detail_desc) {
+  loadDetailSales(detail_id, detail_desc);
+  loadPaymentDetail(detail_id, 0);
+  formatNumberInputs();
 }
 
-function mustGetVal(id) {
-  const el = document.getElementById(id);
-  if (!el) {
-    console.error(`[submit] ❌ Element #${id} tidak ditemukan`);
-    Swal.fire("Gagal", `Element #${id} tidak ditemukan di DOM`, "error");
-    throw new Error(`Element #${id} not found`);
-  }
-  return el.value;
+async function loadCustomerList() {
+  const res = await fetch(`${baseUrl}/list/client/${owner_id}`, {
+    headers: { Authorization: `Bearer ${API_TOKEN}` },
+  });
+  const json = await res.json();
+  customerList = json.listData || [];
 }
 
-function getNum(id) {
-  const v = parseFloat(mustGetVal(id) || "0");
-  return isNaN(v) ? 0 : v;
+async function loadProdukList() {
+  const res = await fetch(`${baseUrl}/list/product/${owner_id}`, {
+    headers: { Authorization: `Bearer ${API_TOKEN}` },
+  });
+  const json = await res.json();
+  produkList = json.listData || [];
 }
 
-// Normalisasi label status → UPPERCASE prefix untuk revision (WON/LOSE/ON GOING)
-
-function normStatusLabel(label) {
-  return (label || "").toString().trim().toUpperCase();
+function filterKlienSuggestions() {
+  const input = document.getElementById("klien").value.toLowerCase();
+  const suggestionBox = document.getElementById("klienSuggestions");
+  suggestionBox.innerHTML = "";
+  if (input.length < 2) return suggestionBox.classList.add("hidden");
+  const filtered = customerList.filter((c) =>
+    c.nama.toLowerCase().includes(input)
+  );
+  if (filtered.length === 0) return suggestionBox.classList.add("hidden");
+  filtered.forEach((item) => {
+    const li = document.createElement("li");
+    li.textContent = `${item.nama} (${item.whatsapp})`;
+    li.className = "px-3 py-2 hover:bg-gray-200 cursor-pointer";
+    li.onclick = () => {
+      document.getElementById("klien").value = item.nama;
+      document.getElementById("klien_id").value = item.pelanggan_id;
+      document.getElementById("no_hp").value = item.whatsapp;
+      document.getElementById("alamat").value = item.alamat;
+      document.getElementById("city").value = item.region_name;
+      document.getElementById("city_id").value = item.region_id;
+      suggestionBox.classList.add("hidden");
+    };
+    suggestionBox.appendChild(li);
+  });
+  suggestionBox.classList.remove("hidden");
 }
 
-// Ambil angka revisi terakhir (R1, R2, ... atau " ... 2")
-function parseRevisionNumber(rev) {
-  if (!rev) return null;
-  const m = String(rev).match(/(?:R\s*)?(\d+)\s*$/i);
-  return m ? parseInt(m[1], 10) : null;
+function tambahItem() {
+  const tbody = document.getElementById("tabelItem");
+  const nomor = tbody.children.length + 1;
+
+  const tr = document.createElement("tr");
+  tr.innerHTML = `
+    <td class="border px-3 py-2 text-center">${nomor}</td>
+    <td class="border px-3 py-2">
+      <input type="text" class="w-full border rounded px-2 itemProduct" placeholder="product">
+    </td>
+    <td class="border px-3 py-2">
+      <input type="text" class="w-full border rounded px-2 itemDesc" placeholder="Deskripsi">
+    </td>
+    <td class="border px-3 py-2">
+      <input type="text" class="w-full border rounded px-2 itemUnit" placeholder="pcs/lusin">
+    </td>
+    <td class="border px-3 py-2">
+      <input type="number" class="w-full border rounded px-2 itemQty text-right" value="1" oninput="recalculateTotal()">
+    </td>
+    <td class="border px-3 py-2">
+      <input type="text" class="w-full border rounded px-2 itemHarga text-right" value="0" oninput="recalculateTotal()">
+    </td>
+    <td class="border px-3 py-2 text-right itemTotal">0</td>
+    <td class="border px-3 py-2 text-center">
+      <button onclick="hapusItem(this)" class="text-red-500 hover:underline">Hapus</button>
+    </td>
+  `;
+
+  tbody.appendChild(tr);
 }
 
-// Hitung revision baru saat status berubah
-function computeNextRevision(
-  oldRevision,
-  /* oldStatusLabel (tak terpakai) */ _oldStatusLabel,
-  newStatusLabel
-) {
-  const nextPrefix = normStatusLabel(newStatusLabel); // contoh: "ON GOING" / "WON" / "LOSE"
-  const oldNum = parseRevisionNumber(oldRevision) || 0; // kalau belum ada, mulai dari 0
-  const nextNum = oldNum + 1; // SELALU naik +1 saat simpan
-  return `${nextPrefix} R${nextNum}`;
+function hapusItem(button) {
+  const row = button.closest("tr");
+  row.remove();
+
+  // Update ulang nomor urut
+  const rows = document.querySelectorAll("#tabelItem tr");
+  rows.forEach((row, index) => {
+    row.children[0].innerText = index + 1;
+  });
+
+  // Hitung ulang total
+  recalculateTotal();
 }
 
-/*********************
- * STATUS DROPDOWN
- *********************/
-async function loadStatusOptions(selectId = "editStatusId", selectedId = null) {
-  try {
-    if (!STATUS_CACHE) {
-      const res = await fetch(STATUS_ENDPOINT, {
-        headers: { Authorization: `Bearer ${API_TOKEN}` },
+function filterProdukDropdownCustom(inputEl) {
+  const value = inputEl.value.toLowerCase();
+  const dropdown = inputEl.nextElementSibling;
+  const select = inputEl.parentElement.querySelector(".itemNama");
+  dropdown.innerHTML = "";
+
+  const filtered = produkList.filter((p) =>
+    p.product.toLowerCase().includes(value)
+  );
+  if (filtered.length === 0) return dropdown.classList.add("hidden");
+
+  filtered.forEach((p) => {
+    const div = document.createElement("div");
+    div.className = "px-3 py-2 hover:bg-gray-200 cursor-pointer text-sm";
+    div.textContent = p.product;
+    div.onclick = () => {
+      inputEl.value = p.product;
+      inputEl.closest("tr").querySelector(".itemHarga").value =
+        p.sale_price.toLocaleString("id-ID");
+      const opt = Array.from(select.options).find(
+        (o) => o.value == p.product_id
+      );
+      if (opt) select.value = opt.value;
+      dropdown.classList.add("hidden");
+      recalculateTotal();
+    };
+    dropdown.appendChild(div);
+  });
+
+  dropdown.classList.remove("hidden");
+}
+
+function recalculateTotal() {
+  let subtotal = 0;
+  const rows = document.querySelectorAll("#tabelItem tr");
+
+  rows.forEach((row) => {
+    const qty = parseInt(row.querySelector(".itemQty")?.value || 0);
+    const harga = parseInt(
+      row.querySelector(".itemHarga")?.value.replace(/[^\d]/g, "") || 0
+    );
+    const total = qty * harga;
+    subtotal += total;
+
+    row.querySelector(".itemTotal").innerText = total.toLocaleString("id-ID");
+  });
+
+  const diskon = parseInt(
+    document.getElementById("inputDiskon")?.value.replace(/[^\d]/g, "") || 0
+  );
+  const shipping = parseInt(
+    document.getElementById("inputShipping")?.value.replace(/[^\d]/g, "") || 0
+  );
+  const pajak = Math.round(0.11 * subtotal);
+  const totalFinal = subtotal - diskon + shipping + pajak;
+
+  document.getElementById("subtotal").innerText =
+    subtotal.toLocaleString("id-ID");
+  document.getElementById("ppn").innerText = pajak.toLocaleString("id-ID");
+  document.getElementById("total").innerText =
+    totalFinal.toLocaleString("id-ID");
+}
+
+function setTodayDate() {
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth() + 1).padStart(2, "0");
+  const dd = String(today.getDate()).padStart(2, "0");
+  document.getElementById("tanggal").value = `${yyyy}-${mm}-${dd}`;
+}
+
+function formatNumberInputs() {
+  document
+    .querySelectorAll(".itemHarga, #inputDiskon, #inputShipping")
+    .forEach((input) => {
+      input.addEventListener("input", () => {
+        const raw = input.value.replace(/[^\d]/g, "");
+        if (!raw) {
+          input.value = "";
+          return;
+        }
+        input.value = parseInt(raw, 10).toLocaleString("id-ID");
+        recalculateTotal();
       });
-      const json = await res.json();
-      STATUS_CACHE = json?.data || [];
-    }
-    const select = document.getElementById(selectId);
-    if (!select) return;
+    });
+}
 
-    select.innerHTML = `<option value="">— Pilih Status —</option>`;
-    STATUS_CACHE.forEach((st) => {
-      const opt = document.createElement("option");
-      opt.value = st.status_id;
-      opt.textContent = st.status_sales;
-      select.appendChild(opt);
+async function submitInvoice() {
+  try {
+    hitungTotalInvoice();
+    const rows = document.querySelectorAll("#tabelItem tr");
+
+    const items = Array.from(rows).map((row, i) => {
+      const product = row.querySelector(".itemProduct")?.value.trim() || "";
+      const description = row.querySelector(".itemDesc")?.value.trim() || "-";
+      const unit = row.querySelector(".itemUnit")?.value.trim() || "pcs";
+
+      const qty = parseInt(row.querySelector(".itemQty")?.value || 0);
+      const unit_price = parseInt(
+        row.querySelector(".itemHarga")?.value.replace(/[^\d]/g, "") || 0
+      );
+
+      if (
+        !product ||
+        qty <= 0 ||
+        !unit ||
+        isNaN(unit_price) ||
+        unit_price <= 0
+      ) {
+        throw new Error(
+          `❌ Invalid item data in row ${
+            i + 1
+          }: product, qty, unit, and unit_price are required and must be valid.`
+        );
+      }
+
+      return {
+        product,
+        description,
+        qty,
+        unit,
+        unit_price,
+        total: qty * unit_price,
+      };
     });
 
-    if (
-      selectedId != null &&
-      STATUS_CACHE.some((s) => String(s.status_id) === String(selectedId))
-    ) {
-      select.value = String(selectedId);
+    const owner_id = 100;
+    const user_id = 100;
+    const subtotal = items.reduce((acc, item) => acc + item.total, 0);
+    const tanggal = document.getElementById("tanggal")?.value || "";
+    const type_id = parseInt(document.getElementById("type_id")?.value || 0);
+    const client = document.getElementById("client")?.value || "-";
+    const project_name = document.getElementById("project_name")?.value || "-";
+    const no_qtn = document.getElementById("no_qtn")?.value || "-";
+    const disc = parseInt(
+      document.getElementById("discount")?.value.replace(/[^\d]/g, "") || 0
+    );
+    const shipping = parseInt(
+      document.getElementById("shipping")?.value.replace(/[^\d]/g, "") || 0
+    );
+    const ppn = Math.round(0.11 * subtotal);
+    const total = subtotal - disc + shipping + ppn;
+    const file = document.getElementById("file")?.files?.[0] || null;
+
+    const formData = new FormData();
+    formData.append("owner_id", owner_id);
+    formData.append("user_id", user_id);
+    formData.append("project_name", project_name);
+    formData.append("no_qtn", no_qtn);
+    formData.append("client", client);
+    if (!type_id || isNaN(type_id) || type_id === 0) {
+      throw new Error("❌ Type penjualan belum dipilih.");
+    }
+    formData.append("type_id", type_id);
+    formData.append("tanggal_ymd", tanggal);
+    formData.append("contract_amount", subtotal);
+    formData.append("disc", disc);
+    formData.append("shipping", shipping);
+    formData.append("ppn", ppn);
+    formData.append("total", total);
+    formData.append("items", JSON.stringify(items)); // tetap dikirim sebagai string
+    if (file) formData.append("file", file);
+
+    // ✅ Debug isi FormData
+    for (const pair of formData.entries()) {
+      console.log(pair[0] + ":", pair[1]);
+    }
+
+    const res = await fetch(`${baseUrl}/add/sales`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${API_TOKEN}`,
+        // ❌ Jangan set Content-Type, FormData akan set otomatis
+      },
+      body: formData,
+    });
+
+    const json = await res.json();
+
+    if (res.ok) {
+      Swal.fire("Sukses", "✅ Data penjualan berhasil disimpan.", "success");
+      loadModuleContent("sales");
     } else {
-      // fallback: pilih opsi pertama non-empty
-      if (select.options.length > 1) select.selectedIndex = 1;
+      Swal.fire(
+        "Gagal",
+        json.message || "❌ Gagal menyimpan data penjualan.",
+        "error"
+      );
     }
   } catch (err) {
-    console.error("❌ loadStatusOptions error:", err);
-    Swal.fire("Gagal", "Tidak dapat memuat daftar status", "error");
+    console.error("❌ Submit error:", err);
+    Swal.fire("Error", "❌ Terjadi kesalahan saat memproses.", "error");
   }
 }
 
-/*********************
- * FETCH DETAIL
- *********************/
-async function loadSalesDetail() {
+async function updateInvoice() {
   try {
-    const response = await fetch(
-      `https://devdinasti.katib.cloud/detail/sales/${pesanan_id}`,
-      { headers: { Authorization: `Bearer ${API_TOKEN}` } }
+    hitungTotalInvoice();
+    const konfirmasi = await Swal.fire({
+      title: "Update Data?",
+      text: "Apakah kamu yakin ingin menyimpan perubahan invoice ini?",
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: "✅ Ya, simpan",
+      cancelButtonText: "❌ Batal",
+    });
+
+    if (!konfirmasi.isConfirmed) return;
+
+    const rows = document.querySelectorAll("#tabelItem tr");
+    const items = Array.from(rows).map((row, i) => {
+      const namaProduk = row.querySelector(".itemProduct")?.value.trim() || "";
+      const deskripsi = row.querySelector(".itemDesc")?.value.trim() || "";
+      const unit = row.querySelector(".itemUnit")?.value.trim() || "PCS";
+      const qty = parseInt(row.querySelector(".itemQty")?.value || 0);
+      const harga = parseInt(
+        row.querySelector(".itemHarga")?.value.replace(/[^\d]/g, "") || 0
+      );
+
+      // Validasi
+      if (!namaProduk || !unit || qty <= 0 || isNaN(harga)) {
+        throw new Error(`Invalid item data in row ${i + 1}`);
+      }
+
+      return {
+        product: namaProduk,
+        description: deskripsi,
+        unit: unit,
+        qty: qty,
+        unit_price: harga,
+      };
+    });
+
+    const discount = parseInt(
+      document.getElementById("discount")?.value.replace(/[^\d]/g, "") || 0
     );
-    if (!response.ok) throw new Error("Failed to fetch sales detail");
+    const shipping = parseInt(
+      document.getElementById("shipping")?.value.replace(/[^\d]/g, "") || 0
+    );
+    const ppn = parseInt(
+      document.getElementById("ppn")?.value.replace(/[^\d]/g, "") || 0
+    );
 
-    const result = await response.json();
-    const data = result.data;
-
-    // Header tampilan
-    document.getElementById("quotationDate").textContent = data.tanggal || "-";
-    document.getElementById("quotationNumber").textContent = data.no_qtn || "-";
-    document.getElementById("quotationRev").textContent =
-      data.status_revision || data.revision_status || "-";
-
-    document.getElementById("clientName").textContent = data.user_nama || "-";
-    document.getElementById("projectName").textContent = `Project: ${
-      data.project_name || "-"
-    }`;
-    document.getElementById("companyName").textContent =
-      data.pelanggan_nama || "-";
-
-    // Items (inline editable)
-    renderEditableItems(data.items || []);
-
-    // Tampilkan angka dari server dulu
-    document.getElementById("subtotal").textContent = `Rp ${(
-      data.subtotal ?? 0
-    ).toLocaleString("id-ID")}`;
-    document.getElementById("disc").textContent = `Rp ${(
-      data.disc ??
-      data.discount ??
-      0
-    ).toLocaleString("id-ID")}`;
-    document.getElementById("shipping").textContent = `Rp ${(
-      data.shipping ?? 0
-    ).toLocaleString("id-ID")}`;
-    document.getElementById("ppn").textContent = `Rp ${(
-      data.ppn ?? 0
-    ).toLocaleString("id-ID")}`;
-    document.getElementById("total").textContent = `Rp ${(
-      data.total ?? 0
-    ).toLocaleString("id-ID")}`;
-
-    // ✅ SIMPAN DETAIL TERAKHIR UNTUK INLINE SAVE
-    window.CURRENT_DETAIL = {
-      pesanan_id: data.pesanan_id,
-      owner_id: data.owner_id ?? 100,
-      user_id: data.user_id ?? 100,
-      no_qtn: data.no_qtn ?? "",
-      project_name: data.project_name ?? "",
-      client: data.client ?? data.pelanggan_nama ?? "",
-      type_id: data.type_id ?? data?.type?.id ?? 2,
-      order_date: data.order_date ?? data.tanggal ?? "",
-      status_id: data.status_id ?? 1,
-      status_revision: data.status_revision ?? data.revision_status ?? "",
-      discount: data.discount ?? data.disc ?? 0,
-      shipping: data.shipping ?? 0,
-      ppn: data.ppn ?? 0,
+    const body = {
+      owner_id: 100,
+      user_id: 100,
+      no_qtn: document.getElementById("no_qtn")?.value || "",
+      project_name: document.getElementById("project_name")?.value || "",
+      client: document.getElementById("client")?.value || "",
+      type_id: document.getElementById("type_id")?.value || 0,
+      order_date: document.getElementById("tanggal")?.value || "",
+      contract_amount: parseInt(
+        document
+          .getElementById("contract_amount")
+          ?.value.replace(/[^\d]/g, "") || 0
+      ),
+      discount: discount,
+      shipping: shipping,
+      ppn: ppn,
+      status_id: 1, // bisa kamu sesuaikan kalau perlu
+      status: "draft", // atau sesuai status sebenarnya
+      revision_number: document.getElementById("revision_number")?.value || "",
+      items: items,
+      file: "",
     };
 
-    // (Opsional) sediakan hidden fallback (kalau kamu pakai builder baca dari DOM)
-    ensureHeaderHiddenFieldsFromDetail(window.CURRENT_DETAIL);
-  } catch (error) {
-    console.error("❌ Error loading sales detail:", error);
-  }
-}
+    console.log("🚀 Update Body:", body);
 
-function ensureHeaderHiddenFieldsFromDetail(detail) {
-  let box = document.getElementById("hiddenHeaderBox");
-  if (!box) {
-    box = document.createElement("div");
-    box.id = "hiddenHeaderBox";
-    box.style.display = "none";
-    document.body.appendChild(box);
-  }
-  const setHidden = (id, value) => {
-    let el = document.getElementById(id);
-    if (!el) {
-      el = document.createElement("input");
-      el.type = "hidden";
-      el.id = id;
-      box.appendChild(el);
-    }
-    el.value = value === "-" || value == null ? "" : String(value);
-  };
-
-  setHidden("editPesananId", detail.pesanan_id);
-  setHidden("editOwnerId", detail.owner_id);
-  setHidden("editUserId", detail.user_id);
-  setHidden("editNoQtn", detail.no_qtn);
-  setHidden("editTypeId", detail.type_id);
-  setHidden("editOrderDate", detail.order_date);
-  setHidden("editProjectName", detail.project_name);
-  setHidden("editPelangganNama", detail.client);
-  setHidden("editStatusId", detail.status_id);
-  setHidden("editStatusRevision", detail.status_revision);
-}
-
-/*********************
- * UPDATE (PUT)
- *********************/
-async function updateSalesDetail(pesanan_id, payload) {
-  const updateUrl = `https://devdinasti.katib.cloud/update/sales/${pesanan_id}`;
-  try {
-    const response = await fetch(updateUrl, {
+    const res = await fetch(`${baseUrl}/update/sales/${window.detail_id}`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${API_TOKEN}`,
       },
-      body: JSON.stringify(payload),
-    });
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.message || "Update failed");
-    console.log("✅ Sales detail updated:", result);
-    Swal.fire("Berhasil", "Data berhasil diperbarui", "success");
-  } catch (error) {
-    console.error("❌ Error updating sales detail:", error);
-    Swal.fire("Gagal", error.message || "Terjadi kesalahan", "error");
-  }
-}
-
-/*********************
- * EDIT MODAL
- *********************/
-function openEditModal(data) {
-  console.group("[openEditModal]");
-  console.log("data:", data);
-
-  const modal = document.getElementById("editSalesModal");
-  if (!modal) {
-    console.error("[openEditModal] ❌ #editSalesModal tidak ada");
-    console.groupEnd();
-    return;
-  }
-  modal.classList.remove("hidden");
-
-  // Simpan status lama
-  OLD_STATUS_LABEL = data.status ?? data.status_sales ?? ""; // label lama
-  OLD_STATUS_REV = data.status_revision ?? data.revision_status ?? "";
-
-  // Locked fields (tampil tapi tidak bisa diubah)
-  const ownerId = data.owner_id ?? 100;
-  const userId = data.user_id ?? 100;
-  const noQtn = data.no_qtn ?? "";
-  const typeId = data.type_id ?? data?.type?.id ?? 2;
-  const orderDt = data.order_date ?? data.tanggal ?? "";
-
-  setVal("editOwnerId", ownerId);
-  setVal("editUserId", userId);
-  setVal("editNoQtn", noQtn);
-  setVal("editTypeId", typeId);
-  setVal("editOrderDate", orderDt);
-  setVal("editPesananId", data.pesanan_id);
-
-  // Editable fields
-  setVal("editProjectName", data.project_name ?? "");
-  setVal("editPelangganNama", data.pelanggan_nama ?? data.client ?? "");
-  setVal("editTanggal", data.tanggal ?? orderDt);
-  setVal("editContractAmount", data.contract_amount ?? 0);
-  setVal("editDisc", data.disc ?? data.discount ?? 0);
-  setVal("editShipping", data.shipping ?? 0);
-  setVal("editPpn", data.ppn ?? 0);
-  setVal("editTotal", data.total ?? 0);
-
-  // Status dropdown + revision
-  loadStatusOptions("editStatusId", data.status_id ?? 1).then(() => {
-    const statusSelect = document.getElementById("editStatusId");
-    const currentLabel =
-      statusSelect?.options[statusSelect.selectedIndex]?.text ??
-      OLD_STATUS_LABEL;
-
-    const initialRev = OLD_STATUS_REV || `${normStatusLabel(currentLabel)} R1`;
-    setVal("editStatusRevision", initialRev);
-
-    if (statusSelect) {
-      statusSelect.onchange = () => {
-        const newLabel =
-          statusSelect.options[statusSelect.selectedIndex]?.text ?? "";
-        const next = computeNextRevision(
-          OLD_STATUS_REV,
-          OLD_STATUS_LABEL,
-          newLabel
-        );
-        setVal("editStatusRevision", next);
-      };
-    }
-  });
-
-  // Items
-  const container = document.getElementById("itemContainer");
-  if (!container) {
-    console.warn("[openEditModal] ❗ #itemContainer tidak ada");
-  } else {
-    container.innerHTML = "";
-    (Array.isArray(data.items) ? data.items : []).forEach((it, i) =>
-      addItemField(it)
-    );
-  }
-
-  console.groupEnd();
-}
-
-function closeEditModal() {
-  document.getElementById("editSalesModal").classList.add("hidden");
-}
-
-/*********************
- * FORM SUBMIT
- *********************/
-document
-  .getElementById("editSalesForm")
-  .addEventListener("submit", async (e) => {
-    e.preventDefault();
-    console.group("[submit editSalesForm]");
-
-    // Kumpulkan items
-    const items = Array.from(
-      document.querySelectorAll("#itemContainer > div")
-    ).map((row) => {
-      const inputs = row.querySelectorAll("input");
-      const item = {};
-      inputs.forEach((input) => {
-        const key = input.dataset.field;
-        const value =
-          input.type === "number"
-            ? parseFloat(input.value || "0")
-            : input.value;
-        item[key] = value;
-      });
-      return item;
+      body: JSON.stringify(body),
     });
 
-    try {
-      const pesananId = mustGetVal("editPesananId");
+    const json = await res.json();
 
-      // Ambil label status TERPILIH saat ini
-      const statusSelect = document.getElementById("editStatusId");
-      const currentStatusLabel =
-        statusSelect && statusSelect.selectedIndex >= 0
-          ? statusSelect.options[statusSelect.selectedIndex].text
-          : "";
-
-      // ✅ Revisi baru: SELALU +1 dari revisi lama, prefix = status saat ini
-      const nextRevision = computeNextRevision(
-        OLD_STATUS_REV, // dari openEditModal
-        OLD_STATUS_LABEL, // tidak dipakai, tetap kirim agar signature sama
-        currentStatusLabel
+    if (res.ok) {
+      Swal.fire("Sukses", "✅ Data penjualan berhasil diperbarui.", "success");
+      loadModuleContent("sales");
+    } else {
+      Swal.fire(
+        "Gagal",
+        json.message || "❌ Gagal update data penjualan.",
+        "error"
       );
-
-      // (Opsional) tampilkan ke input preview agar user lihat apa yang akan tersimpan
-      setVal("editStatusRevision", nextRevision);
-
-      const payload = {
-        owner_id: parseInt(mustGetVal("editOwnerId"), 10),
-        user_id: parseInt(mustGetVal("editUserId"), 10),
-        no_qtn: mustGetVal("editNoQtn"),
-        type_id: parseInt(mustGetVal("editTypeId"), 10),
-        order_date: mustGetVal("editOrderDate"),
-
-        project_name: mustGetVal("editProjectName"),
-        client: mustGetVal("editPelangganNama"),
-
-        contract_amount: getNum("editContractAmount"),
-        discount: getNum("editDisc"), // mapping dari 'disc'
-        shipping: getNum("editShipping"),
-        ppn: getNum("editPpn"),
-
-        status_id: parseInt(mustGetVal("editStatusId"), 10),
-        status_revision: nextRevision, // ✅ pakai revisi BARU hasil hitung di atas
-
-        file: "",
-        items: items.map(({ description, qty, unit, unit_price }) => ({
-          description,
-          qty: parseFloat(qty || "0"),
-          unit,
-          unit_price: parseFloat(unit_price || "0"),
-        })),
-      };
-
-      console.log("[submit] payload:", payload);
-
-      await updateSalesDetail(pesananId, payload);
-      closeEditModal();
-      await loadSalesDetail();
-    } catch (err) {
-      console.error("[submit] ❌ Error:", err);
-    } finally {
-      console.groupEnd();
     }
-  });
-
-/*********************
- * ITEMS UI
- *********************/
-function addItemField(item = {}) {
-  const container = document.getElementById("itemContainer");
-  const wrapper = document.createElement("div");
-  wrapper.className = "grid grid-cols-5 gap-2 items-center";
-  wrapper.innerHTML = `
-    <input type="text" class="border p-2 rounded" placeholder="Description" value="${
-      item.description || ""
-    }" data-field="description" />
-    <input type="number" class="border p-2 rounded" placeholder="Qty" value="${
-      item.qty || 1
-    }" data-field="qty" />
-    <input type="text" class="border p-2 rounded" placeholder="Unit" value="${
-      item.unit || "pcs"
-    }" data-field="unit" />
-    <input type="number" class="border p-2 rounded" placeholder="Unit Price" value="${
-      item.unit_price || 0
-    }" data-field="unit_price" />
-    <input type="number" class="border p-2 rounded" placeholder="Total (opsional)" value="${
-      item.total || 0
-    }" data-field="total" />
-  `;
-  container.appendChild(wrapper);
+  } catch (error) {
+    console.error("❌ Update error:", error);
+    Swal.fire("Error", "❌ Terjadi kesalahan saat memproses.", "error");
+  }
 }
 
-/*********************
- * INIT
- *********************/
-document.getElementById("addButton").addEventListener("click", () => {
-  showFormModal();
-  loadProjectType?.();
-  loadDropdownCall?.();
-});
+function loadDetailSales(Id, Detail) {
+  window.detail_id = Id;
+  window.detail_desc = Detail;
 
-console.log(pesanan_id);
-loadSalesDetail();
+  fetch(`${baseUrl}/detail/sales/${Id}`, {
+    headers: { Authorization: `Bearer ${API_TOKEN}` },
+  })
+    .then((res) => res.json())
+    .then(async ({ data }) => {
+      // Pastikan opsi sudah dimuat terlebih dahulu
+      await loadSalesType(); // asumsikan fungsi ini return Promise
+      await loadStatusOptions();
+      await updateRevisionNumber();
+      document.getElementById("formTitle").innerText = `Edit ${Detail}`;
+      document.getElementById("tanggal").value = data.tanggal_ymd;
+      document.getElementById("type_id").value = data.type_id;
+      document.getElementById("no_qtn").value = data.no_qtn;
+      document.getElementById("project_name").value = data.project_name;
+      document.getElementById("client").value = data.pelanggan_nama;
+      document.getElementById("contract_amount").value = data.contract_amount;
+      document.getElementById("discount").value = data.disc;
+      document.getElementById("shipping").value = data.shipping;
+      document.getElementById("ppn").value = data.ppn;
 
-// Opsional: tombol "Edit" Anda bisa panggil loadDetailAndEdit()
-async function loadDetailAndEdit() {
+      // Hitung total jika tidak tersedia di data
+      const subtotal =
+        (data.contract_amount || 0) -
+        (data.disc || 0) +
+        (data.shipping || 0) +
+        (data.ppn || 0);
+      document.getElementById("total").value = subtotal;
+
+      document.getElementById("status").value = data.status || "-";
+      document.getElementById("revision_number").value =
+        data.revision_number || "";
+
+      // Toggle tombol berdasarkan status
+      const simpanBtn = document.querySelector(
+        'button[onclick="submitInvoice()"]'
+      );
+      const updateBtn = document.querySelector(
+        'button[onclick="updateInvoice()"]'
+      );
+      const allowedStatus = [1, 2, 6];
+      console.log("Status ID:", data.status_id);
+
+      if (allowedStatus.includes(data.status_id)) {
+        simpanBtn?.classList.add("hidden"); // karena ini mode edit
+        updateBtn?.classList.remove("hidden");
+      } else {
+        simpanBtn?.classList.add("hidden");
+        updateBtn?.classList.add("hidden");
+      }
+
+      // Load item
+      const tbody = document.getElementById("tabelItem");
+      tbody.innerHTML = ""; // Bersihkan isi tabel sebelum load ulang
+
+      data.items.forEach((item, index) => {
+        tambahItem(); // Fungsi ini menambahkan <tr> sesuai struktur HTML yang kamu pakai
+
+        const row = tbody.lastElementChild;
+
+        // Set nomor urut otomatis (kolom pertama)
+        row.children[0].innerText = index + 1;
+
+        // Set nilai dari API ke masing-masing kolom input
+        row.querySelector(".itemProduct").value = item.product || "";
+        row.querySelector(".itemDesc").value = item.description || "";
+        row.querySelector(".itemUnit").value = item.unit || "";
+        row.querySelector(".itemQty").value = item.qty || 1;
+        row.querySelector(".itemHarga").value = (
+          item.unit_price || 0
+        ).toLocaleString("id-ID");
+        row.querySelector(".itemTotal").innerText = (
+          item.total || item.qty * item.unit_price
+        ).toLocaleString("id-ID");
+      });
+
+      recalculateTotal();
+    })
+    .catch((err) => console.error("Gagal load detail:", err));
+}
+
+function formatDateForInput(dateStr) {
+  const [d, m, y] = dateStr.split("/");
+  return `${y}-${m}-${d}`;
+}
+
+async function loadPaymentDetail(detail_id) {
   try {
     const res = await fetch(
-      `https://devdinasti.katib.cloud/detail/sales/${pesanan_id}`,
-      { headers: { Authorization: `Bearer ${API_TOKEN}` } }
+      `${baseUrl}/list/sales_receipt/${owner_id}/${detail_id}`,
+      {
+        headers: { Authorization: `Bearer ${API_TOKEN}` },
+      }
     );
-    const result = await res.json();
-    if (!res.ok) throw new Error(result.message);
+    const { totalInvoice, totalReceipt, totalRemainingPayment, listData } =
+      await res.json();
 
-    // timpa items dari tabel (jika ada perubahan)
-    const inlineItems = collectInlineItems();
-    if (inlineItems.length) {
-      result.data.items = inlineItems;
+    // Inject Ringkasan Pembayaran
+    document.getElementById(
+      "paymentTotalInvoice"
+    ).innerText = `Rp ${totalInvoice.toLocaleString("id-ID")}`;
+    document.getElementById(
+      "paymentTotalPaid"
+    ).innerText = `Rp ${totalReceipt.toLocaleString("id-ID")}`;
+    document.getElementById(
+      "paymentRemaining"
+    ).innerText = `Rp ${totalRemainingPayment.toLocaleString("id-ID")}`;
+
+    // Inject List Pembayaran
+    const wrapper = document.getElementById("listPembayaran");
+    wrapper.innerHTML = "";
+
+    if (!listData || listData.length === 0) {
+      wrapper.innerHTML =
+        '<p class="text-sm text-gray-500">Belum ada pembayaran.</p>';
+      return;
     }
-    openEditModal(result.data);
+
+    listData.forEach((item) => {
+      const div = document.createElement("div");
+      div.className = "border p-3 rounded text-sm bg-white";
+      div.innerHTML = `
+        <div class="flex justify-between">
+          <div class="font-semibold">${item.account}</div>
+          <div class="text-gray-500 text-sm">${item.date}</div>
+        </div>
+        <div class="flex justify-between mt-1">
+          <div class="text-gray-600">${item.notes || "-"}</div>
+          <div class="font-bold text-green-700">Rp ${item.nominal.toLocaleString(
+            "id-ID"
+          )}</div>
+        </div>
+      `;
+      wrapper.appendChild(div);
+    });
   } catch (err) {
-    console.error(err);
-    Swal.fire("Gagal", "Tidak dapat mengambil detail", "error");
+    console.error("❌ Gagal memuat detail pembayaran:", err);
   }
 }
 
-/*********************
- * INLINE TABLE (Items)
- *********************/
-
-// Format & parse
-function fmtIDR(n) {
-  const v = Number(n || 0);
-  return "Rp " + v.toLocaleString("id-ID");
-}
-function unformatNumber(str) {
-  if (str === "-" || str == null) return 0;
-  return Number(String(str).replace(/[^\d.]/g, "")) || 0;
-}
-function dash(v) {
-  return v === undefined || v === null || v === "" ? "-" : v;
-}
-
-// Render tabel editable
-function renderEditableItems(items) {
-  // Renumber ulang baris setelah hapus/tambah
-  function renumberRows() {
-    document.querySelectorAll("#tableBody tr").forEach((tr, i) => {
-      const noCell = tr.querySelector("td:first-child");
-      if (noCell) noCell.textContent = i + 1;
-    });
-  }
-
-  // Init tombol
-  document.getElementById("addRowButton")?.addEventListener("click", () => {
-    addEditableRow({}, document.querySelectorAll("#tableBody tr").length + 1);
-  });
-
-  document
-    .getElementById("saveInlineButton")
-    ?.addEventListener("click", async () => {
-      try {
-        const payload = buildUpdatePayloadFromDOM();
-        const missing = validateRequired(payload);
-        if (missing.length) {
-          console.warn("Missing fields:", missing);
-          Swal.fire(
-            "Data kurang",
-            `Field wajib belum lengkap: ${missing.join(", ")}`,
-            "warning"
-          );
-          return;
-        }
-        console.log("[inline-save] payload:", payload);
-        await updateSalesDetail(
-          window.CURRENT_DETAIL?.pesanan_id || pesanan_id,
-          payload
-        );
-        await loadSalesDetail(); // refresh dan refresh CURRENT_DETAIL
-      } catch (err) {
-        console.error(err);
-        Swal.fire("Gagal", err.message || "Gagal menyimpan perubahan", "error");
-      }
+async function printInvoice(pesanan_id) {
+  try {
+    const response = await fetch(`${baseUrl}/detail/sales/${pesanan_id}/pdf`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${API_TOKEN}`,
+      },
     });
 
-  const tbody = document.getElementById("tableBody");
-  if (!tbody) return;
-  tbody.innerHTML = "";
+    const result = await response.json();
+    const data = result?.data;
+    if (!data) throw new Error("Data faktur tidak ditemukan");
 
-  items.forEach((item, i) => addEditableRow(item, i + 1));
+    const { isConfirmed, dismiss } = await Swal.fire({
+      title: "Cetak Faktur Penjualan",
+      text: "Pilih metode pencetakan:",
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: "Download PDF",
+      cancelButtonText: "Print Langsung",
+      reverseButtons: true,
+    });
 
-  // Delegasi event untuk recalculation (qty/unit_price/total berubah)
-  tbody.addEventListener("input", onTableInput);
-  tbody.addEventListener("focusin", onCurrencyFocus);
-  tbody.addEventListener("focusout", onCurrencyBlur);
-}
+    if (isConfirmed) {
+      const url = `faktur_print.html?id=${pesanan_id}`;
+      Swal.fire({
+        title: "Menyiapkan PDF...",
+        html: "File akan diunduh otomatis.",
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        didOpen: () => {
+          Swal.showLoading();
 
-// Tambah satu baris editable
-function addEditableRow(item = {}, displayIndex) {
-  const tbody = document.getElementById("tableBody");
-  const qty = dash(item.qty);
-  const unit = dash(item.unit || "pcs");
-  const unitPrice = dash(item.unit_price);
-  const initialTotal =
-    item.total != null
-      ? item.total
-      : Number(item.qty || 0) * Number(item.unit_price || 0);
+          const iframe = document.createElement("iframe");
+          iframe.src = url + "&mode=download";
+          iframe.style.width = "0";
+          iframe.style.height = "0";
+          iframe.style.border = "none";
+          document.body.appendChild(iframe);
 
-  const tr = document.createElement("tr");
-  tr.className = "border-b";
-  tr.innerHTML = `
-    <td class="px-4 py-2 border text-center">${displayIndex}</td>
-
-    <td class="px-4 py-2 border">
-      <input class="border p-1 w-full" data-field="description" value="${dash(
-        item.description
-      )}" placeholder="-" />
-    </td>
-
-    <td class="px-4 py-2 border text-center">
-      <input class="border p-1 w-16 text-center" data-field="qty" value="${qty}" placeholder="-" />
-    </td>
-
-    <td class="px-4 py-2 border text-center">
-      <input class="border p-1 w-20 text-center" data-field="unit" value="${unit}" placeholder="-" />
-    </td>
-
-    <td class="px-4 py-2 border text-right">
-      <input class="border p-1 w-32 text-right currency" data-field="unit_price" value="${
-        unitPrice === "-" ? "-" : fmtIDR(unitPrice)
-      }" placeholder="-" />
-    </td>
-
-    <td class="px-4 py-2 border text-right">
-      <input class="border p-1 w-32 text-right currency" data-field="total" value="${
-        initialTotal ? fmtIDR(initialTotal) : "-"
-      }" placeholder="-" />
-    </td>
-
-    <td class="px-4 py-2 border text-center">
-      <button class="text-red-600 hover:underline delete-row">🗑 Hapus</button>
-    </td>
-  `;
-  // mark total auto jika dari perhitungan
-  const totalEl = tr.querySelector('[data-field="total"]');
-  if (totalEl && item.total == null) {
-    totalEl.dataset.auto = "1";
-  }
-  tbody.appendChild(tr);
-
-  // Bind tombol hapus
-  const delBtn = tr.querySelector(".delete-row");
-  delBtn.addEventListener("click", () => {
-    tr.remove();
-    renumberRows();
-    recalcSubtotalFromTable();
-    recalcGrandTotal();
-  });
-}
-
-// Saat input berubah di tabel
-function onTableInput(e) {
-  const input = e.target;
-  if (!input.dataset || !input.closest("tr")) return;
-
-  const tr = input.closest("tr");
-  const field = input.dataset.field;
-
-  // Kalau user mengetik di kolom total → mark as manual (bukan auto)
-  if (field === "total") {
-    input.dataset.auto = ""; // manual override
-    recalcSubtotalFromTable();
-    recalcGrandTotal();
-    return;
-  }
-
-  // Kalau qty/unit_price berubah → hitung ulang total hanya bila total masih auto atau "-"
-  if (field === "qty" || field === "unit_price") {
-    const totalEl = tr.querySelector('[data-field="total"]');
-    if (!totalEl) return;
-
-    const isAuto =
-      totalEl.dataset.auto === "1" ||
-      totalEl.value === "-" ||
-      totalEl.value === "";
-    if (isAuto) {
-      const qtyEl = tr.querySelector('[data-field="qty"]');
-      const upEl = tr.querySelector('[data-field="unit_price"]');
-      const qty = unformatNumber(qtyEl.value);
-      const up = unformatNumber(upEl.value);
-      const total = qty * up;
-      totalEl.value = total ? fmtIDR(total) : "-";
-      totalEl.dataset.auto = "1"; // tetap di auto mode
+          setTimeout(() => {
+            Swal.close();
+            Swal.fire(
+              "Berhasil",
+              "Faktur Penjualan berhasil diunduh.",
+              "success"
+            );
+          }, 3000);
+        },
+      });
+    } else if (dismiss === Swal.DismissReason.cancel) {
+      window.open(`faktur_print.html?id=${pesanan_id}`, "_blank");
     }
-    recalcSubtotalFromTable();
-    recalcGrandTotal();
+  } catch (error) {
+    Swal.fire({
+      title: "Gagal",
+      text: error.message,
+      icon: "error",
+    });
   }
 }
 
-// Format rupiah saat blur, hilangkan format saat focus (biar enak diketik)
-function onCurrencyFocus(e) {
-  const input = e.target;
-  if (!input.classList.contains("currency")) return;
-  if (input.value === "-" || input.value === "") return;
-  input.value = unformatNumber(input.value); // jadikan angka polos
-}
-function onCurrencyBlur(e) {
-  const input = e.target;
-  if (!input.classList.contains("currency")) return;
-  if (input.value === "" || input.value === "-") {
-    input.value = "-";
-    return;
+async function sendWhatsAppInvoice() {
+  if (!window.detail_id) return alert("Invoice belum tersedia.");
+
+  try {
+    const res = await fetch(`${baseUrl}/detail/sales/${window.detail_id}`, {
+      headers: { Authorization: `Bearer ${API_TOKEN}` },
+    });
+
+    const { detail } = await res.json();
+    const {
+      customer,
+      no_inv,
+      date,
+      sales_detail,
+      discount_nominal,
+      shipping,
+      terms,
+      term_payment,
+      notes,
+    } = detail;
+
+    // Cari nomor WA dari customerList
+    const klien = customerList.find(
+      (c) => c.pelanggan_id == detail.customer_id
+    );
+    const wa = klien?.whatsapp?.replace(/\D/g, "");
+    if (!wa) return alert("❌ Nomor WhatsApp klien tidak ditemukan.");
+
+    // Format daftar produk
+    let produkList = "";
+    let subtotal = 0;
+    sales_detail.forEach((item, i) => {
+      const qty = item.qty;
+      const harga = item.unit_price;
+      const total = qty * harga;
+      subtotal += total;
+      produkList += `${i + 1}. ${
+        item.product
+      } x${qty} @Rp${harga.toLocaleString("id-ID")} = Rp${total.toLocaleString(
+        "id-ID"
+      )}\n`;
+    });
+
+    const pajak = Math.round(subtotal * 0);
+    const total = subtotal - discount_nominal + pajak + shipping;
+
+    // Susun pesan WA
+    let pesan = `Hallo ${customer},\n\nBerikut tagihan untuk invoice *${no_inv}* (tgl: ${date}):\n\n`;
+    pesan += produkList + "\n";
+    pesan += `Subtotal: Rp${subtotal.toLocaleString("id-ID")}\n`;
+    if (discount_nominal)
+      pesan += `Diskon: Rp${discount_nominal.toLocaleString("id-ID")}\n`;
+    pesan += `Pajak (0%): Rp${pajak.toLocaleString("id-ID")}\n`;
+    if (shipping) pesan += `Ongkir: Rp${shipping.toLocaleString("id-ID")}\n`;
+    pesan += `*Total Tagihan: Rp${total.toLocaleString("id-ID")}*\n\n`;
+    if (notes) pesan += `📝 *Catatan:*\n${notes}\n\n`;
+    if (terms) pesan += `📌 *Syarat & Ketentuan:*\n${terms}\n\n`;
+    if (term_payment) pesan += `💰 *Term of Payment:*\n${term_payment}\n\n`;
+    pesan += `Silakan lakukan pembayaran sesuai ketentuan. Terima kasih 🙏`;
+
+    // Kirim via WA
+    const url = `https://wa.me/${wa}?text=${encodeURIComponent(pesan)}`;
+    window.open(url, "_blank");
+  } catch (err) {
+    console.error("❌ Gagal kirim WA:", err);
+    alert("Gagal mengirim pesan WhatsApp.");
   }
-  const n = unformatNumber(input.value);
-  input.value = n ? fmtIDR(n) : "-";
 }
 
-// Hitung subtotal dari tabel (menjumlah kolom total)
-function recalcSubtotalFromTable() {
-  const totals = document.querySelectorAll('#tableBody [data-field="total"]');
-  let sum = 0;
-  totals.forEach((inp) => {
-    sum += unformatNumber(inp.value);
-  });
-  const subtotalEl = document.getElementById("subtotal");
-  if (subtotalEl) subtotalEl.textContent = fmtIDR(sum);
+async function tryGenerateNoQtn() {
+  const order_date = document.getElementById("tanggal").value;
+  const type_id = document.getElementById("type_id").value;
+
+  if (!order_date || !type_id) return;
+
+  try {
+    const response = await fetch(`${baseUrl}/generate/noqtn`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${API_TOKEN}`,
+      },
+      body: JSON.stringify({
+        order_date,
+        type_id,
+        owner_id: 100,
+        user_id: 100,
+      }),
+    });
+
+    const result = await response.json();
+    console.log("Hasil generate:", result);
+
+    document.getElementById("no_qtn").value =
+      result.data.no_qtn || "[no_qtn kosong]";
+  } catch (error) {
+    console.error("Gagal generate no_qtn:", error);
+  }
 }
 
-// Hitung TOTAL keseluruhan = subtotal - disc + shipping + ppn (pakai tampilan sekarang)
-function recalcGrandTotal() {
-  const subtotal = unformatNumber(
-    document.getElementById("subtotal")?.textContent
-  );
-  const disc = unformatNumber(document.getElementById("disc")?.textContent);
-  const shipping = unformatNumber(
-    document.getElementById("shipping")?.textContent
-  );
-  const ppn = unformatNumber(document.getElementById("ppn")?.textContent);
-  const total = subtotal - disc + shipping + ppn;
-  const totalEl = document.getElementById("total");
-  if (totalEl) totalEl.textContent = fmtIDR(total);
+async function loadSalesType() {
+  if (typeLoaded) return;
+  typeLoaded = true;
+
+  try {
+    const response = await fetch(`${baseUrl}/type/sales`, {
+      headers: {
+        Authorization: `Bearer ${API_TOKEN}`,
+      },
+    });
+
+    if (!response.ok) throw new Error("Gagal mengambil data sales type");
+
+    const result = await response.json();
+    const salesTypes = result.data;
+
+    const typeSelect = document.getElementById("type_id");
+    typeSelect.innerHTML = '<option value="">Pilih Tipe</option>';
+
+    salesTypes.forEach((item) => {
+      const option = document.createElement("option");
+      option.value = item.type_id;
+      option.textContent = `${item.nama_type} (${item.kode_type})`;
+      typeSelect.appendChild(option);
+    });
+  } catch (error) {
+    console.error("Gagal load sales type:", error);
+  }
 }
+async function loadStatusOptions() {
+  if (statusLoaded) return;
 
-// (Untuk step berikutnya: ambil item dari tabel buat payload PUT)
-function collectInlineItems() {
-  const rows = document.querySelectorAll("#tableBody tr");
-  return Array.from(rows).map((tr) => {
-    const description =
-      tr.querySelector('[data-field="description"]')?.value ?? "-";
-    const qty = tr.querySelector('[data-field="qty"]')?.value ?? "-";
-    const unit = tr.querySelector('[data-field="unit"]')?.value ?? "-";
-    const up = tr.querySelector('[data-field="unit_price"]')?.value ?? "-";
-    const total = tr.querySelector('[data-field="total"]')?.value ?? "-";
-    return {
-      description: description === "-" ? "" : description,
-      qty: unformatNumber(qty),
-      unit: unit === "-" ? "" : unit,
-      unit_price: unformatNumber(up),
-      total: unformatNumber(total),
-    };
-  });
-}
-// (Opsional) debouncing biar gak spam PUT
-autosaveTimer = null;
+  try {
+    const response = await fetch(`${baseUrl}/status/sales`, {
+      headers: {
+        Authorization: `Bearer ${API_TOKEN}`,
+      },
+    });
 
-document.getElementById("tableBody").addEventListener("focusout", async (e) => {
-  if (e.target.tagName !== "INPUT") return;
+    const data = await response.json();
 
-  clearTimeout(autosaveTimer);
-  autosaveTimer = setTimeout(async () => {
-    try {
-      const payload = buildUpdatePayloadFromDOM(); // ✅ payload lengkap
-      const missing = validateRequired(payload);
-      if (missing.length) {
-        console.warn("[auto-save] missing:", missing);
-        return; // jangan PUT kalau belum lengkap (misal load belum selesai)
-      }
-      console.log("[auto-save] payload:", payload);
-      await updateSalesDetail(
-        window.CURRENT_DETAIL?.pesanan_id || pesanan_id,
-        payload
-      );
-      // optional: refresh tampilan
-      await loadSalesDetail();
-    } catch (err) {
-      console.error("[auto-save] error:", err);
+    if (data.response === "200") {
+      const select = document.getElementById("status");
+      data.data.forEach((item) => {
+        const option = document.createElement("option");
+        option.value = item.status_id;
+        option.textContent = item.status_sales;
+        select.appendChild(option);
+      });
+      statusLoaded = true;
+    } else {
+      console.error("Gagal memuat status:", data.message);
     }
-  }, 300); // 300ms setelah user selesai keluar dari input
+  } catch (error) {
+    console.error("Error:", error);
+  }
+}
+
+function updateRevisionNumber() {
+  const statusSelect = document.getElementById("status");
+  const statusText = statusSelect.options[statusSelect.selectedIndex].text;
+  console.log("Status dipilih:", statusText);
+
+  let revisionStatus = "";
+
+  if (lastRevision === 0 && statusText === oldStatusText) {
+    revisionStatus = statusText;
+  } else {
+    const newRevision = lastRevision + 1;
+    revisionStatus = `${statusText} R${newRevision}`;
+  }
+
+  console.log("Revision status:", revisionStatus); // cek hasilnya
+
+  document.getElementById("revision_number").value = revisionStatus;
+}
+
+document.addEventListener("input", function (e) {
+  if (e.target.classList.contains("formatRupiah")) {
+    const angka = e.target.value.replace(/[^\d]/g, "");
+    e.target.value = formatRupiah(angka);
+  }
 });
 
-function calcSubtotalFromItems(items) {
-  return (items || []).reduce((sum, it) => {
-    const base = (Number(it.qty) || 0) * (Number(it.unit_price) || 0);
-    // kalau user sudah isi total manual, pakai itu
-    return sum + (it.total ? Number(it.total) : base);
-  }, 0);
+function formatRupiah(angka) {
+  if (!angka) return "0";
+  return angka.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 }
 
-function buildUpdatePayloadFromDOM() {
-  const base = window.CURRENT_DETAIL || {};
-  const items = collectInlineItems();
-  const subtotal = calcSubtotalFromItems(items);
+function parseNumber(input) {
+  return parseInt(input.replace(/[^\d]/g, "")) || 0;
+}
 
-  // Ambil nilai tampilan disc/shipping/ppn yang ada sekarang (kalau ada di header)
-  const disc = unformatNumber(document.getElementById("disc")?.textContent);
-  const shipping = unformatNumber(
-    document.getElementById("shipping")?.textContent
+function hitungTotalInvoice() {
+  const nominal = parseNumber(document.getElementById("contract_amount").value);
+  const discount = parseNumber(document.getElementById("discount").value);
+  const shipping = parseNumber(document.getElementById("shipping").value);
+  const ppnPersen = parseFloat(
+    document.getElementById("ppn_persen")?.value || 11
   );
-  const ppn = unformatNumber(document.getElementById("ppn")?.textContent);
 
-  // status_revision: biarkan nilai berjalan (atau pakai yang ada di header)
-  const statusIdEl = document.getElementById("editStatusId");
-  const status_id = statusIdEl
-    ? parseInt(statusIdEl.value || base.status_id || 1, 10)
-    : base.status_id || 1;
-  const status_revision =
-    document.getElementById("editStatusRevision")?.value ||
-    base.status_revision ||
-    "";
+  const dpp = nominal - discount;
+  const ppn = Math.round((dpp * ppnPersen) / 100);
+  const total = dpp + ppn + shipping;
 
-  // Payload LENGKAP sesuai endpoint update
-  const payload = {
-    owner_id: base.owner_id,
-    user_id: base.user_id,
-    no_qtn: base.no_qtn,
-    project_name: base.project_name,
-    client: base.client,
-    type_id: base.type_id,
-    order_date: base.order_date,
+  // Update form input
+  document.getElementById("ppn").value = formatRupiah(ppn);
+  document.getElementById("total").value = formatRupiah(total);
 
-    contract_amount: subtotal, // kontrak = subtotal items (atau ganti sesuai kebijakanmu)
-    discount: disc, // endpoint minta 'discount'
-    shipping: shipping,
-    ppn: ppn,
+  // Update elemen ringkasan tampilan
+  document.getElementById("subtotal").innerText = formatRupiah(nominal);
+  document.getElementById("diskon").innerText = formatRupiah(discount);
+  document.getElementById("pajak").innerText = formatRupiah(ppn);
+  document.getElementById("total").innerText = formatRupiah(total);
 
-    status_id: status_id,
-    status_revision: status_revision,
-
-    file: "",
-    items: items.map(({ description, qty, unit, unit_price }) => ({
-      description,
-      qty,
-      unit,
-      unit_price,
-    })),
-  };
-  return payload;
+  // Bisa diisi nilai default untuk ringkasan pembayaran (nanti bisa kamu ubah pas masuk ke bagian pembayaran)
+  document.getElementById("paymentTotalInvoice").innerText =
+    formatRupiah(total);
+  document.getElementById("paymentTotalPaid").innerText = "0";
+  document.getElementById("paymentRemaining").innerText = formatRupiah(total);
 }
 
-function validateRequired(payload) {
-  const required = [
-    "owner_id",
-    "user_id",
-    "no_qtn",
-    "project_name",
-    "client",
-    "type_id",
-    "order_date",
-    "contract_amount",
-    "status_id",
-  ];
-  const missing = required.filter((k) => {
-    const v = payload[k];
-    return (
-      v === undefined ||
-      v === null ||
-      v === "" ||
-      (typeof v === "number" && isNaN(v))
-    );
-  });
-  return missing;
-}
-addBtn = document.getElementById("addRowButton");
-if (addBtn) {
-  addBtn.onclick = () => {
-    addEditableRow({}, document.querySelectorAll("#tableBody tr").length + 1);
-  };
-}
+document.addEventListener("input", function (e) {
+  const id = e.target.id;
+  const isRelevant = ["contract_amount", "discount", "shipping"].includes(id);
 
-saveBtn = document.getElementById("saveInlineButton");
-if (saveBtn) {
-  saveBtn.onclick = async () => {
-    try {
-      const payload = buildUpdatePayloadFromDOM();
-      const missing = validateRequired(payload);
-      if (missing.length) {
-        Swal.fire(
-          "Data kurang",
-          `Field wajib belum lengkap: ${missing.join(", ")}`,
-          "warning"
-        );
-        return;
+  if (e.target.classList.contains("formatRupiah")) {
+    const angka = e.target.value.replace(/[^\d]/g, "");
+    e.target.value = formatRupiah(angka);
+  }
+
+  if (isRelevant) {
+    hitungTotalInvoice();
+  }
+});
+
+async function loadTermOfPayment(ownerId) {
+  try {
+    const response = await fetch(
+      `${baseUrl}/table/finance_instruction_payment/${ownerId}/1`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${API_TOKEN}`,
+        },
       }
-      console.log("[inline-save] payload:", payload);
-      await updateSalesDetail(
-        window.CURRENT_DETAIL?.pesanan_id || pesanan_id,
-        payload
+    );
+
+    const result = await response.json();
+    const data = result?.tableData;
+
+    if (data && data.length > 0) {
+      // Temukan item dengan instruction sesuai
+      const selected = data.find(
+        (item) => item.instruction === "Pembayaran 30% DP, 70% setelah selesai."
       );
-      await loadSalesDetail();
-    } catch (err) {
-      console.error(err);
-      Swal.fire("Gagal", err.message || "Gagal menyimpan perubahan", "error");
+
+      // Jika ditemukan, tampilkan di textarea
+      if (selected) {
+        document.getElementById("termPayment").value = selected.instruction;
+      } else {
+        document.getElementById("termPayment").value = "";
+      }
     }
-  };
+  } catch (error) {
+    console.error("Gagal memuat Term of Payment:", error);
+  }
 }
+
+// Panggil fungsi saat halaman siap
+document.addEventListener("DOMContentLoaded", () => {
+  loadTermOfPayment(owner_id);
+});
