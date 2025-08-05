@@ -13,6 +13,11 @@ formatNumberInputs();
 document.getElementById("tanggal").addEventListener("change", tryGenerateNoQtn);
 document.getElementById("type_id").addEventListener("change", tryGenerateNoQtn);
 
+// Auto-set status to "On Going" for new quotations
+if (!window.detail_id) {
+  document.getElementById("status").value = 1; // Assuming 1 is "On Going"
+}
+
 if (window.detail_id && window.detail_desc) {
   loadDetailSales(detail_id, detail_desc);
   loadPaymentDetail(detail_id, 0);
@@ -20,11 +25,14 @@ if (window.detail_id && window.detail_desc) {
 }
 
 async function loadCustomerList() {
-  const res = await fetch(`${baseUrl}/list/client/${owner_id}`, {
-    headers: { Authorization: `Bearer ${API_TOKEN}` },
+  const response = await fetch(`${baseUrl}/all/client/`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${API_TOKEN}`, // sesuaikan dengan token kamu
+    },
   });
-  const json = await res.json();
-  customerList = json.listData || [];
+  const result = await response.json();
+  customerList = result.data || [];
 }
 
 async function loadProdukList() {
@@ -35,32 +43,54 @@ async function loadProdukList() {
   produkList = json.listData || [];
 }
 
-function filterKlienSuggestions() {
-  const input = document.getElementById("klien").value.toLowerCase();
-  const suggestionBox = document.getElementById("klienSuggestions");
+function filterclientSuggestions() {
+  const input = document.getElementById("client").value.toLowerCase();
+  const suggestionBox = document.getElementById("clientSuggestions");
   suggestionBox.innerHTML = "";
-  if (input.length < 2) return suggestionBox.classList.add("hidden");
-  const filtered = customerList.filter((c) =>
-    c.nama.toLowerCase().includes(input)
+
+  if (input.length < 2) {
+    return suggestionBox.classList.add("hidden");
+  }
+
+  const filtered = customerList.filter(
+    (c) => c.nama && c.nama.toLowerCase().includes(input)
   );
-  if (filtered.length === 0) return suggestionBox.classList.add("hidden");
+
+  if (filtered.length === 0) {
+    return suggestionBox.classList.add("hidden");
+  }
+
   filtered.forEach((item) => {
     const li = document.createElement("li");
-    li.textContent = `${item.nama} (${item.whatsapp})`;
+    li.textContent = `${item.nama} (${item.whatsapp || "No WA"})`;
     li.className = "px-3 py-2 hover:bg-gray-200 cursor-pointer";
-    li.onclick = () => {
-      document.getElementById("klien").value = item.nama;
-      document.getElementById("klien_id").value = item.pelanggan_id;
-      document.getElementById("no_hp").value = item.whatsapp;
-      document.getElementById("alamat").value = item.alamat;
-      document.getElementById("city").value = item.region_name;
-      document.getElementById("city_id").value = item.region_id;
+    li.addEventListener("click", () => {
+      document.getElementById("client").value = item.nama;
+      document.getElementById("client_id").value = item.pelanggan_id;
+      document.getElementById("no_hp").value =
+        item.whatsapp || item.phone || "";
+      document.getElementById("alamat").value = item.alamat || "";
+      document.getElementById("city").value = item.city_name || "";
+      document.getElementById("city_id").value = "";
+
+      // Tutup suggestion box
       suggestionBox.classList.add("hidden");
-    };
+    });
+
     suggestionBox.appendChild(li);
   });
+
   suggestionBox.classList.remove("hidden");
 }
+
+document.addEventListener("click", (e) => {
+  const input = document.getElementById("client");
+  const suggestionBox = document.getElementById("clientSuggestions");
+
+  if (!input.contains(e.target) && !suggestionBox.contains(e.target)) {
+    suggestionBox.classList.add("hidden");
+  }
+});
 
 function tambahItem() {
   const tbody = document.getElementById("tabelItem");
@@ -68,29 +98,55 @@ function tambahItem() {
 
   const tr = document.createElement("tr");
   tr.innerHTML = `
-    <td class="border px-3 py-2 text-center">${nomor}</td>
-    <td class="border px-3 py-2">
-      <input type="text" class="w-full border rounded px-2 itemProduct" placeholder="product">
-    </td>
-    <td class="border px-3 py-2">
-      <input type="text" class="w-full border rounded px-2 itemDesc" placeholder="Deskripsi">
-    </td>
-    <td class="border px-3 py-2">
-      <input type="text" class="w-full border rounded px-2 itemUnit" placeholder="pcs/lusin">
-    </td>
-    <td class="border px-3 py-2">
-      <input type="number" class="w-full border rounded px-2 itemQty text-right" value="1" oninput="recalculateTotal()">
-    </td>
-    <td class="border px-3 py-2">
-      <input type="text" class="w-full border rounded px-2 itemHarga text-right" value="0" oninput="recalculateTotal()">
-    </td>
-    <td class="border px-3 py-2 text-right itemTotal">0</td>
-    <td class="border px-3 py-2 text-center">
-      <button onclick="hapusItem(this)" class="text-red-500 hover:underline">Hapus</button>
-    </td>
-  `;
+        <td class="border px-3 py-2">
+            <input type="text" class="w-full border rounded px-2 itemProduct" placeholder="product">
+        </td>
+        <td class="border px-3 py-2">
+            <input type="text" class="w-full border rounded px-2 itemDesc" placeholder="Deskripsi">
+        </td>
+        <td class="border px-3 py-2 w-[10%]">
+            <input type="text" class="w-full border rounded px-2 itemUnit" placeholder="pcs/lusin">
+        </td>
+        <td class="border px-3 py-2 w-[12%]">
+            <input type="number" class="w-full border rounded px-2 itemQty text-right" value="1" oninput="recalculateTotal()">
+        </td>
+        <td class="border px-3 py-2 w-[17%]">
+            <input type="text" class="w-full border rounded px-2 itemHarga text-right" value="0" oninput="recalculateTotal()">
+        </td>
+        <td class="border px-3 py-2 text-right w-[12%] itemTotal">0
+        </td>
+        <td class="border px-3 py-2 text-center w-[10%]">
+            <button onclick="hapusItem(this)" class="text-red-500 hover:underline">Hapus</button>
+        </td>
+
+    `;
 
   tbody.appendChild(tr);
+
+  // Setup Rupiah formatting for the new item
+  setupRupiahFormattingForElement(tr.querySelector(".itemHarga"));
+}
+
+function formatNumber(angka) {
+  if (isNaN(angka) || angka === "") return "0";
+  return parseInt(angka).toLocaleString("id-ID");
+}
+
+function setupRupiahFormattingForElement(element) {
+  element.addEventListener("input", function (e) {
+    const value = e.target.value.replace(/[^\d]/g, "");
+    e.target.value = formatNumber(value);
+
+    // Calculate subtotal for this row
+    const row = e.target.closest("tr");
+    const qty = parseInt(row.querySelector(".itemQty")?.value || 0);
+    const harga = parseRupiah(e.target.value);
+    const subtotal = qty * harga;
+    row.querySelector(".itemTotal").textContent = formatNumber(subtotal);
+
+    // Recalculate totals
+    calculateInvoiceTotals();
+  });
 }
 
 function hapusItem(button) {
@@ -104,7 +160,7 @@ function hapusItem(button) {
   });
 
   // Hitung ulang total
-  recalculateTotal();
+  calculateInvoiceTotals();
 }
 
 function filterProdukDropdownCustom(inputEl) {
@@ -131,7 +187,7 @@ function filterProdukDropdownCustom(inputEl) {
       );
       if (opt) select.value = opt.value;
       dropdown.classList.add("hidden");
-      recalculateTotal();
+      calculateInvoiceTotals();
     };
     dropdown.appendChild(div);
   });
@@ -140,34 +196,17 @@ function filterProdukDropdownCustom(inputEl) {
 }
 
 function recalculateTotal() {
-  let subtotal = 0;
   const rows = document.querySelectorAll("#tabelItem tr");
-
   rows.forEach((row) => {
-    const qty = parseInt(row.querySelector(".itemQty")?.value || 0);
-    const harga = parseInt(
-      row.querySelector(".itemHarga")?.value.replace(/[^\d]/g, "") || 0
-    );
-    const total = qty * harga;
-    subtotal += total;
+    const qty = parseInt(row.querySelector(".itemQty").value) || 0;
+    const hargaText = row.querySelector(".itemHarga").value;
+    const harga = parseRupiah(hargaText); // Pastikan fungsi parseRupiah benar
 
-    row.querySelector(".itemTotal").innerText = total.toLocaleString("id-ID");
+    const total = qty * harga;
+    row.querySelector(".itemTotal").textContent = formatNumber(total);
   });
 
-  const diskon = parseInt(
-    document.getElementById("inputDiskon")?.value.replace(/[^\d]/g, "") || 0
-  );
-  const shipping = parseInt(
-    document.getElementById("inputShipping")?.value.replace(/[^\d]/g, "") || 0
-  );
-  const pajak = Math.round(0.11 * subtotal);
-  const totalFinal = subtotal - diskon + shipping + pajak;
-
-  document.getElementById("subtotal").innerText =
-    subtotal.toLocaleString("id-ID");
-  document.getElementById("ppn").innerText = pajak.toLocaleString("id-ID");
-  document.getElementById("total").innerText =
-    totalFinal.toLocaleString("id-ID");
+  calculateInvoiceTotals(); // Hitung ulang total invoice
 }
 
 function setTodayDate() {
@@ -179,34 +218,32 @@ function setTodayDate() {
 }
 
 function formatNumberInputs() {
-  document
-    .querySelectorAll(".itemHarga, #inputDiskon, #inputShipping")
-    .forEach((input) => {
-      input.addEventListener("input", () => {
-        const raw = input.value.replace(/[^\d]/g, "");
-        if (!raw) {
-          input.value = "";
-          return;
-        }
-        input.value = parseInt(raw, 10).toLocaleString("id-ID");
-        recalculateTotal();
-      });
+  document.querySelectorAll(".itemHarga, #discount").forEach((input) => {
+    input.addEventListener("input", () => {
+      const raw = input.value.replace(/[^\d]/g, "");
+      if (!raw) {
+        input.value = "";
+        return;
+      }
+      input.value = parseInt(raw, 10).toLocaleString("id-ID");
+      calculateInvoiceTotals();
     });
+  });
 }
 
 async function submitInvoice() {
   try {
-    hitungTotalInvoice();
-    const rows = document.querySelectorAll("#tabelItem tr");
+    // Auto-calculate totals before submission
+    calculateInvoiceTotals();
 
+    const rows = document.querySelectorAll("#tabelItem tr");
     const items = Array.from(rows).map((row, i) => {
       const product = row.querySelector(".itemProduct")?.value.trim() || "";
       const description = row.querySelector(".itemDesc")?.value.trim() || "-";
       const unit = row.querySelector(".itemUnit")?.value.trim() || "pcs";
-
       const qty = parseInt(row.querySelector(".itemQty")?.value || 0);
-      const unit_price = parseInt(
-        row.querySelector(".itemHarga")?.value.replace(/[^\d]/g, "") || 0
+      const unit_price = parseRupiah(
+        row.querySelector(".itemHarga")?.value || 0
       );
 
       if (
@@ -219,7 +256,7 @@ async function submitInvoice() {
         throw new Error(
           `❌ Invalid item data in row ${
             i + 1
-          }: product, qty, unit, and unit_price are required and must be valid.`
+          }: product, qty, unit, and price are required`
         );
       }
 
@@ -235,79 +272,104 @@ async function submitInvoice() {
 
     const owner_id = 100;
     const user_id = 100;
-    const subtotal = items.reduce((acc, item) => acc + item.total, 0);
-    const tanggal = document.getElementById("tanggal")?.value || "";
-    const type_id = parseInt(document.getElementById("type_id")?.value || 0);
-    const client = document.getElementById("client")?.value || "-";
-    const project_name = document.getElementById("project_name")?.value || "-";
-    const no_qtn = document.getElementById("no_qtn")?.value || "-";
-    const disc = parseInt(
-      document.getElementById("discount")?.value.replace(/[^\d]/g, "") || 0
+    const nominalKontrak = parseRupiah(
+      document.getElementById("contract_amount_display").textContent
     );
-    const shipping = parseInt(
-      document.getElementById("shipping")?.value.replace(/[^\d]/g, "") || 0
+    const disc = parseRupiah(document.getElementById("discount")?.value || 0);
+    const ppn = parseRupiah(document.getElementById("ppn_display").textContent);
+    const total = parseRupiah(
+      document.getElementById("total_display").textContent
     );
-    const ppn = Math.round(0.11 * subtotal);
-    const total = subtotal - disc + shipping + ppn;
-    const file = document.getElementById("file")?.files?.[0] || null;
 
     const formData = new FormData();
     formData.append("owner_id", owner_id);
     formData.append("user_id", user_id);
-    formData.append("project_name", project_name);
-    formData.append("no_qtn", no_qtn);
-    formData.append("client", client);
-    if (!type_id || isNaN(type_id) || type_id === 0) {
-      throw new Error("❌ Type penjualan belum dipilih.");
-    }
-    formData.append("type_id", type_id);
-    formData.append("tanggal_ymd", tanggal);
-    formData.append("contract_amount", subtotal);
+    formData.append(
+      "project_name",
+      document.getElementById("project_name")?.value || "-"
+    );
+    formData.append("no_qtn", document.getElementById("no_qtn")?.value || "-");
+    formData.append("client", document.getElementById("client")?.value || "-");
+    formData.append(
+      "type_id",
+      parseInt(document.getElementById("type_id")?.value || 0)
+    );
+    formData.append(
+      "tanggal_ymd",
+      document.getElementById("tanggal")?.value || ""
+    );
+    formData.append("contract_amount", nominalKontrak);
     formData.append("disc", disc);
-    formData.append("shipping", shipping);
     formData.append("ppn", ppn);
     formData.append("total", total);
-    formData.append("items", JSON.stringify(items)); // tetap dikirim sebagai string
-    if (file) formData.append("file", file);
+    formData.append("status_id", 1); // Auto-set to "On Going"
+    formData.append(
+      "status_revision",
+      (document.getElementById("revision_number").value = "On Going")
+    );
+    formData.append("items", JSON.stringify(items));
 
-    // ✅ Debug isi FormData
-    for (const pair of formData.entries()) {
-      console.log(pair[0] + ":", pair[1]);
+    if (document.getElementById("file")?.files?.[0]) {
+      formData.append("file", document.getElementById("file")?.files?.[0]);
     }
 
     const res = await fetch(`${baseUrl}/add/sales`, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${API_TOKEN}`,
-        // ❌ Jangan set Content-Type, FormData akan set otomatis
-      },
+      headers: { Authorization: `Bearer ${API_TOKEN}` },
       body: formData,
     });
 
     const json = await res.json();
 
     if (res.ok) {
-      Swal.fire("Sukses", "✅ Data penjualan berhasil disimpan.", "success");
+      Swal.fire(
+        "Sukses",
+        "✅ Quotation berhasil dibuat dengan status On Going",
+        "success"
+      );
       loadModuleContent("sales");
     } else {
-      Swal.fire(
-        "Gagal",
-        json.message || "❌ Gagal menyimpan data penjualan.",
-        "error"
-      );
+      Swal.fire("Gagal", json.message || "❌ Gagal menyimpan data", "error");
     }
   } catch (err) {
-    console.error("❌ Submit error:", err);
-    Swal.fire("Error", "❌ Terjadi kesalahan saat memproses.", "error");
+    console.error("Submit error:", err);
+    Swal.fire("Error", err.message || "❌ Terjadi kesalahan", "error");
   }
 }
 
+// Initialize automatic features when DOM is loaded
+document.addEventListener("DOMContentLoaded", function () {
+  // Setup Rupiah formatting
+  setupRupiahFormatting();
+
+  // Recalculate when quantity changes
+  document.querySelectorAll(".itemQty").forEach((input) => {
+    input.addEventListener("input", function (e) {
+      const row = e.target.closest("tr");
+      const qty = parseInt(e.target.value || 0);
+      const harga = parseRupiah(row.querySelector(".itemHarga")?.value || 0);
+      row.querySelector(".itemTotal").textContent = formatNumber(qty * harga);
+      calculateInvoiceTotals();
+    });
+  });
+
+  // Recalculate when discount changes
+  document.getElementById("discount")?.addEventListener("input", function (e) {
+    e.target.value = formatRupiah(e.target.value.replace(/[^\d]/g, ""));
+    calculateInvoiceTotals();
+  });
+
+  // Initial calculation
+  calculateInvoiceTotals();
+});
+
 async function updateInvoice() {
   try {
-    hitungTotalInvoice();
+    calculateInvoiceTotals();
+
     const konfirmasi = await Swal.fire({
       title: "Update Data?",
-      text: "Apakah kamu yakin ingin menyimpan perubahan invoice ini?",
+      text: "Apakah kamu yakin ingin menyimpan perubahan?",
       icon: "question",
       showCancelButton: true,
       confirmButtonText: "✅ Ya, simpan",
@@ -318,37 +380,45 @@ async function updateInvoice() {
 
     const rows = document.querySelectorAll("#tabelItem tr");
     const items = Array.from(rows).map((row, i) => {
-      const namaProduk = row.querySelector(".itemProduct")?.value.trim() || "";
-      const deskripsi = row.querySelector(".itemDesc")?.value.trim() || "";
-      const unit = row.querySelector(".itemUnit")?.value.trim() || "PCS";
+      const product = row.querySelector(".itemProduct")?.value.trim() || "";
+      const description = row.querySelector(".itemDesc")?.value.trim() || "";
+      const unit = row.querySelector(".itemUnit")?.value.trim() || "pcs";
       const qty = parseInt(row.querySelector(".itemQty")?.value || 0);
-      const harga = parseInt(
-        row.querySelector(".itemHarga")?.value.replace(/[^\d]/g, "") || 0
+      const unit_price = parseRupiah(
+        row.querySelector(".itemHarga")?.value || 0
       );
 
-      // Validasi
-      if (!namaProduk || !unit || qty <= 0 || isNaN(harga)) {
+      if (!product || !unit || qty <= 0 || isNaN(unit_price)) {
         throw new Error(`Invalid item data in row ${i + 1}`);
       }
 
       return {
-        product: namaProduk,
-        description: deskripsi,
-        unit: unit,
-        qty: qty,
-        unit_price: harga,
+        product,
+        description,
+        unit,
+        qty,
+        unit_price,
       };
     });
 
-    const discount = parseInt(
-      document.getElementById("discount")?.value.replace(/[^\d]/g, "") || 0
+    const nominalKontrak = items.reduce(
+      (acc, item) => acc + item.qty * item.unit_price,
+      0
     );
-    const shipping = parseInt(
-      document.getElementById("shipping")?.value.replace(/[^\d]/g, "") || 0
-    );
-    const ppn = parseInt(
-      document.getElementById("ppn")?.value.replace(/[^\d]/g, "") || 0
-    );
+    const disc = parseRupiah(document.getElementById("discount")?.value || 0);
+    const dpp = nominalKontrak - disc;
+    const ppn = Math.round(dpp * 0.11);
+    const total = dpp + ppn;
+
+    const status_id = parseInt(document.getElementById("status")?.value || 1);
+    let status_revision = "Revisi ke " + (window.revision_count || 1);
+    if (status_id === 1) {
+      status_revision = `On Going R${window.revision_count || 1}`;
+    } else if (status_id === 2) {
+      status_revision = `Won R${window.revision_count || 1}`;
+    } else if (status_id === 3) {
+      status_revision = `Lose R${window.revision_count || 1}`;
+    }
 
     const body = {
       owner_id: 100,
@@ -358,22 +428,15 @@ async function updateInvoice() {
       client: document.getElementById("client")?.value || "",
       type_id: document.getElementById("type_id")?.value || 0,
       order_date: document.getElementById("tanggal")?.value || "",
-      contract_amount: parseInt(
-        document
-          .getElementById("contract_amount")
-          ?.value.replace(/[^\d]/g, "") || 0
-      ),
-      discount: discount,
-      shipping: shipping,
+      contract_amount: nominalKontrak,
+      discount: disc,
       ppn: ppn,
-      status_id: 1, // bisa kamu sesuaikan kalau perlu
-      status: "draft", // atau sesuai status sebenarnya
-      revision_number: document.getElementById("revision_number")?.value || "",
+      total: total,
+      status_id: status_id,
+      status_revision: (document.getElementById("revision_number").value =
+        status_revision),
       items: items,
-      file: "",
     };
-
-    console.log("🚀 Update Body:", body);
 
     const res = await fetch(`${baseUrl}/update/sales/${window.detail_id}`, {
       method: "PUT",
@@ -387,18 +450,23 @@ async function updateInvoice() {
     const json = await res.json();
 
     if (res.ok) {
-      Swal.fire("Sukses", "✅ Data penjualan berhasil diperbarui.", "success");
+      Swal.fire("Sukses", "✅ Data berhasil diperbarui", "success");
       loadModuleContent("sales");
     } else {
-      Swal.fire(
-        "Gagal",
-        json.message || "❌ Gagal update data penjualan.",
-        "error"
-      );
+      Swal.fire("Gagal", json.message || "❌ Gagal update data", "error");
     }
   } catch (error) {
-    console.error("❌ Update error:", error);
-    Swal.fire("Error", "❌ Terjadi kesalahan saat memproses.", "error");
+    console.error("Update error:", error);
+    Swal.fire("Error", error.message || "❌ Terjadi kesalahan", "error");
+  }
+}
+function initializeForm(isEdit = false) {
+  if (isEdit) {
+    document.getElementById("statusContainer").classList.remove("hidden");
+    updateRevisionNumber();
+  } else {
+    document.getElementById("statusContainer").classList.add("hidden");
+    document.getElementById("revision_number").value = "On Going";
   }
 }
 
@@ -481,7 +549,7 @@ function loadDetailSales(Id, Detail) {
         ).toLocaleString("id-ID");
       });
 
-      recalculateTotal();
+      calculateInvoiceTotals();
     })
     .catch((err) => console.error("Gagal load detail:", err));
 }
@@ -489,60 +557,6 @@ function loadDetailSales(Id, Detail) {
 function formatDateForInput(dateStr) {
   const [d, m, y] = dateStr.split("/");
   return `${y}-${m}-${d}`;
-}
-
-async function loadPaymentDetail(detail_id) {
-  try {
-    const res = await fetch(
-      `${baseUrl}/list/sales_receipt/${owner_id}/${detail_id}`,
-      {
-        headers: { Authorization: `Bearer ${API_TOKEN}` },
-      }
-    );
-    const { totalInvoice, totalReceipt, totalRemainingPayment, listData } =
-      await res.json();
-
-    // Inject Ringkasan Pembayaran
-    document.getElementById(
-      "paymentTotalInvoice"
-    ).innerText = `Rp ${totalInvoice.toLocaleString("id-ID")}`;
-    document.getElementById(
-      "paymentTotalPaid"
-    ).innerText = `Rp ${totalReceipt.toLocaleString("id-ID")}`;
-    document.getElementById(
-      "paymentRemaining"
-    ).innerText = `Rp ${totalRemainingPayment.toLocaleString("id-ID")}`;
-
-    // Inject List Pembayaran
-    const wrapper = document.getElementById("listPembayaran");
-    wrapper.innerHTML = "";
-
-    if (!listData || listData.length === 0) {
-      wrapper.innerHTML =
-        '<p class="text-sm text-gray-500">Belum ada pembayaran.</p>';
-      return;
-    }
-
-    listData.forEach((item) => {
-      const div = document.createElement("div");
-      div.className = "border p-3 rounded text-sm bg-white";
-      div.innerHTML = `
-        <div class="flex justify-between">
-          <div class="font-semibold">${item.account}</div>
-          <div class="text-gray-500 text-sm">${item.date}</div>
-        </div>
-        <div class="flex justify-between mt-1">
-          <div class="text-gray-600">${item.notes || "-"}</div>
-          <div class="font-bold text-green-700">Rp ${item.nominal.toLocaleString(
-            "id-ID"
-          )}</div>
-        </div>
-      `;
-      wrapper.appendChild(div);
-    });
-  } catch (err) {
-    console.error("❌ Gagal memuat detail pembayaran:", err);
-  }
 }
 
 async function printInvoice(pesanan_id) {
@@ -629,11 +643,11 @@ async function sendWhatsAppInvoice() {
     } = detail;
 
     // Cari nomor WA dari customerList
-    const klien = customerList.find(
+    const client = customerList.find(
       (c) => c.pelanggan_id == detail.customer_id
     );
-    const wa = klien?.whatsapp?.replace(/\D/g, "");
-    if (!wa) return alert("❌ Nomor WhatsApp klien tidak ditemukan.");
+    const wa = client?.whatsapp?.replace(/\D/g, "");
+    if (!wa) return alert("❌ Nomor WhatsApp client tidak ditemukan.");
 
     // Format daftar produk
     let produkList = "";
@@ -767,20 +781,30 @@ async function loadStatusOptions() {
 
 function updateRevisionNumber() {
   const statusSelect = document.getElementById("status");
-  const statusText = statusSelect.options[statusSelect.selectedIndex].text;
+  const selectedIndex = statusSelect.selectedIndex;
+  const selectedValue = statusSelect.value;
+
+  if (!selectedValue || selectedIndex === 0) {
+    document.getElementById("revision_number").value = "";
+    return;
+  }
+
+  const statusText = statusSelect.options[selectedIndex].text;
   console.log("Status dipilih:", statusText);
 
   let revisionStatus = "";
+  let currentRevision = lastRevision || 0;
 
-  if (lastRevision === 0 && statusText === oldStatusText) {
+  // Jika status tidak berubah dan revisi masih 0, maka tetap (misal: "On Going")
+  if (currentRevision === 0 && statusText === oldStatusText) {
     revisionStatus = statusText;
   } else {
-    const newRevision = lastRevision + 1;
+    // Kalau status berubah atau sudah pernah revisi sebelumnya
+    const newRevision = statusText === oldStatusText ? currentRevision + 1 : 1;
     revisionStatus = `${statusText} R${newRevision}`;
   }
 
-  console.log("Revision status:", revisionStatus); // cek hasilnya
-
+  console.log("Revision status:", revisionStatus);
   document.getElementById("revision_number").value = revisionStatus;
 }
 
@@ -792,46 +816,106 @@ document.addEventListener("input", function (e) {
 });
 
 function formatRupiah(angka) {
-  if (!angka) return "0";
-  return angka.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  if (isNaN(angka) || angka === "") return "Rp 0";
+  return "Rp " + parseInt(angka).toLocaleString("id-ID");
 }
 
-function parseNumber(input) {
-  return parseInt(input.replace(/[^\d]/g, "")) || 0;
+function parseRupiah(rupiah) {
+  if (!rupiah) return 0;
+  // Hapus semua karakter non-digit termasuk titik
+  return parseInt(rupiah.replace(/[^\d]/g, "")) || 0;
 }
 
-function hitungTotalInvoice() {
-  const nominal = parseNumber(document.getElementById("contract_amount").value);
-  const discount = parseNumber(document.getElementById("discount").value);
-  const shipping = parseNumber(document.getElementById("shipping").value);
-  const ppnPersen = parseFloat(
-    document.getElementById("ppn_persen")?.value || 11
-  );
+function updateDisplayedValues(subtotal, diskon, ppn, total) {
+  // Update summary section - tanpa Rp
+  document.getElementById("contract_amount_display").textContent =
+    formatNumber(subtotal);
+  document.getElementById("diskon").textContent = formatNumber(diskon);
+  document.getElementById("ppn_display").textContent = formatNumber(ppn);
+  document.getElementById("total_display").textContent = formatNumber(total);
 
-  const dpp = nominal - discount;
-  const ppn = Math.round((dpp * ppnPersen) / 100);
-  const total = dpp + ppn + shipping;
+  // Update input fields (if they exist)
+  if (document.getElementById("contract_amount")) {
+    document.getElementById("contract_amount").value = subtotal;
+  }
+  if (document.getElementById("ppn")) {
+    document.getElementById("ppn").value = ppn;
+  }
+  if (document.getElementById("total")) {
+    document.getElementById("total").value = total;
+  }
+}
 
-  // Update form input
-  document.getElementById("ppn").value = formatRupiah(ppn);
-  document.getElementById("total").value = formatRupiah(total);
+function calculateInvoiceTotals() {
+  const rows = document.querySelectorAll("#tabelItem tr");
+  let subtotal = 0; // Ini adalah Nominal Kontrak (total semua item sebelum diskon & pajak)
 
-  // Update elemen ringkasan tampilan
-  document.getElementById("subtotal").innerText = formatRupiah(nominal);
-  document.getElementById("diskon").innerText = formatRupiah(discount);
-  document.getElementById("pajak").innerText = formatRupiah(ppn);
-  document.getElementById("total").innerText = formatRupiah(total);
+  // 1. Hitung subtotal/nominal kontrak dari semua item (Harga x Qty)
+  rows.forEach((row) => {
+    const qty = parseInt(row.querySelector(".itemQty")?.value || 0);
+    const harga = parseRupiah(row.querySelector(".itemHarga")?.value || 0);
+    subtotal += qty * harga;
+  });
 
-  // Bisa diisi nilai default untuk ringkasan pembayaran (nanti bisa kamu ubah pas masuk ke bagian pembayaran)
-  document.getElementById("paymentTotalInvoice").innerText =
-    formatRupiah(total);
-  document.getElementById("paymentTotalPaid").innerText = "0";
-  document.getElementById("paymentRemaining").innerText = formatRupiah(total);
+  // 2. Hitung diskon
+  const diskon = parseRupiah(document.getElementById("discount")?.value || 0);
+
+  // 3. Hitung DPP (setelah diskon)
+  const dpp = subtotal - diskon;
+
+  // 4. Hitung PPN 11% dari DPP
+  const ppn = Math.round(dpp * 0.11);
+
+  // 5. Hitung Total Akhir: (Subtotal - Diskon) + PPN
+  const total = dpp + ppn;
+
+  // Update tampilan
+  updateDisplayedValues(subtotal, diskon, ppn, total);
+}
+
+function updateDisplayedValues(subtotal, diskon, ppn, total) {
+  // Update summary section
+  document.getElementById("contract_amount_display").textContent =
+    formatRupiah(subtotal);
+  document.getElementById("diskon").textContent = formatRupiah(diskon);
+  document.getElementById("ppn_display").textContent = formatRupiah(ppn);
+  document.getElementById("total_display").textContent = formatRupiah(total);
+
+  // Update input fields (if they exist)
+  if (document.getElementById("contract_amount")) {
+    document.getElementById("contract_amount").value = subtotal;
+  }
+  if (document.getElementById("ppn")) {
+    document.getElementById("ppn").value = ppn;
+  }
+  if (document.getElementById("total")) {
+    document.getElementById("total").value = total;
+  }
+}
+
+// Setup Rupiah formatting for inputs
+function setupRupiahFormatting() {
+  document.querySelectorAll(".itemHarga").forEach((input) => {
+    input.addEventListener("input", function (e) {
+      const value = e.target.value.replace(/[^\d]/g, "");
+      e.target.value = formatRupiah(value);
+
+      // Calculate subtotal for this row
+      const row = e.target.closest("tr");
+      const qty = parseInt(row.querySelector(".itemQty")?.value || 0);
+      const harga = parseRupiah(e.target.value);
+      const subtotal = qty * harga;
+      row.querySelector(".itemTotal").textContent = formatNumber(subtotal);
+
+      // Recalculate totals
+      calculateInvoiceTotals();
+    });
+  });
 }
 
 document.addEventListener("input", function (e) {
   const id = e.target.id;
-  const isRelevant = ["contract_amount", "discount", "shipping"].includes(id);
+  const isRelevant = ["discount"].includes(id);
 
   if (e.target.classList.contains("formatRupiah")) {
     const angka = e.target.value.replace(/[^\d]/g, "");
@@ -839,7 +923,7 @@ document.addEventListener("input", function (e) {
   }
 
   if (isRelevant) {
-    hitungTotalInvoice();
+    calculateInvoiceTotals();
   }
 });
 
@@ -879,4 +963,8 @@ async function loadTermOfPayment(ownerId) {
 // Panggil fungsi saat halaman siap
 document.addEventListener("DOMContentLoaded", () => {
   loadTermOfPayment(owner_id);
+  // Set default status to "On Going" for new forms
+  if (!window.detail_id) {
+    document.getElementById("status").value = 1;
+  }
 });
