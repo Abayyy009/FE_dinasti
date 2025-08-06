@@ -133,7 +133,7 @@ window.rowTemplate = function (item, index, perPage = 10) {
       ${item.project_type}
     </td>
   
-    <td class="px-6 py-4 text-sm text-gray-700 border-b text-right sm:border-0 flex justify-between sm:table-cell">
+    <td class="px-6 py-4 text-sm text-gray-700 border-b text-right sm:border-0 flex justify-between sm:table-cell w-[17%]">
       <span class="font-medium sm:hidden">Sisa Bayar</span>
       ${formatRupiah(item.contract_amount)}
     </td>
@@ -151,47 +151,26 @@ window.rowTemplate = function (item, index, perPage = 10) {
         ${item.status}
       </span>
       <div class="dropdown-menu hidden fixed w-48 bg-white border rounded shadow z-50 text-sm">
-        <button onclick="event.stopPropagation(); loadModuleContent('sales_detail', '${
-          item.pesanan_id
-        }', '${
+  <!-- View Order -->
+  <button onclick="event.stopPropagation(); loadModuleContent('sales_detail', '${
+    item.pesanan_id
+  }', '${
     item.no_qtn
   }');" class="block w-full text-left px-4 py-2 hover:bg-gray-100">
-          👁️ View Order
-        </button>
-    ${
-      item.status_id === 2 || item.status_id === 6
-        ? `
-      <button onclick="event.stopPropagation(); addPayment('${item.pesanan_id}', '${item.remaining_payment}');" class="block w-full text-left px-4 py-2 hover:bg-gray-100">
-        💰 Add Payment
-      </button>
-    `
-        : ""
-    }
+    👁️ View Order
+  </button>
 
-    ${
-      item.status_id === 3
-        ? `
-      <button onclick="event.stopPropagation(); addPackage('${item.pesanan_id}');" class="block w-full text-left px-4 py-2 hover:bg-gray-100">
-        📦 Process Package
-      </button>
-    `
-        : ""
-    }
+  <!-- Delete Order -->
+  <button onclick="event.stopPropagation(); handleDelete('${
+    item.pesanan_id
+  }')" class="block w-full text-left px-4 py-2 hover:bg-gray-100 text-red-600">
+    🗑 Delete Order
+  </button>
+</div>
 
-    ${
-      item.status_id === 2
-        ? `
-      <button onclick="event.stopPropagation(); handleDelete(${item.pesanan_id})" class="block w-full text-left px-4 py-2 hover:bg-gray-100">
-        🗑 Delete Order
-      </button>
-    `
-        : ""
-    }
-
-      </div>
     </td>
     <td class="px-6 py-4 text-sm border-b sm:border-0 flex justify-between sm:table-cell bg-gray-800 text-white sm:bg-transparent sm:text-gray-700">${
-      item.revision_status || item.revision_number
+      item.revision_status
     }</td>
   </tr>`;
 };

@@ -50,30 +50,17 @@ async function fetchAndUpdateData(id = null) {
       state[currentDataType].currentPage,
       id
     );
-    console.log("[fetchAndUpdateData] Fetched Response:", response);
+    if (!response || !response.tableData)
+      throw new Error("Invalid response from the API");
 
-    if (
-      !response ||
-      !Array.isArray(response.tableData) ||
-      response.tableData.length === 0
-    ) {
-      console.warn("[fetchAndUpdateData] No tableData in response");
-      throw new Error("Invalid or empty response from the API");
-    }
-
-    // Simpan data ke state
     dataItems = response.tableData;
-    state[currentDataType].totalRecords = response.totalRecords || 0;
-    state[currentDataType].totalPages = response.totalPages || 1;
-    state[currentDataType].currentPage = response.currentPage || 1;
+    updateState(response);
 
     setTimeout(() => {
-      console.log("[fetchAndUpdateData] Calling loadData()...");
-      loadData(); // Pastikan loadData pakai dataItems
-      updatePagination(); // Pastikan pagination-nya sesuai juga
+      loadData();
+      updatePagination();
     }, 500);
   } catch (error) {
-    console.error("[fetchAndUpdateData] Error caught:", error);
     showErrorLoadingData(document.querySelector(`#${tableBodyId}`));
   }
 }
@@ -126,23 +113,19 @@ function loadData() {
   }
 
   tableBody.innerHTML = "";
-
-  console.log("[loadData] dataItems:", dataItems); // ✅ Check what's inside
-
   if (!dataItems || dataItems.length === 0) {
     tableBody.innerHTML = `<tr><td colspan="${colSpanCount}" style="text-align: center; color: red; font-weight: bold;">No Data Available</td></tr>`;
     return;
   }
 
   dataItems.forEach((item, index) => {
-    const row = document.createElement("tr");
-
-    row.setAttribute("data-index", index);
+    row = document.createElement("tr");
 
     const html = window.rowTemplate(item, index);
     const hasDropdown = html.includes("dropdown-menu");
     const action = hasDropdown;
 
+    // Tambahkan class & event jika ada dropdown
     if (action) {
       row.classList.add(
         "hover:bg-gray-50",
@@ -150,10 +133,11 @@ function loadData() {
         "transition",
         "relative"
       );
-      row.onclick = (e) => toggleDropdown(e, row.dataset.index);
+      row.onclick = function (e) {
+        toggleDropdown(this, e);
+      };
     }
-
-    row.innerHTML = html;
+    row.innerHTML = window.rowTemplate(item, index);
     tableBody.appendChild(row);
   });
 }
@@ -168,13 +152,11 @@ function getTableBody() {
       return document.querySelector("#tableBody");
   }
 }
+
 function updatePagination(paginationContainer, onPageChange) {
-  const currentState = state[currentDataType];
-  if (!currentState) {
-    console.warn("❗ currentDataType belum di-set atau datanya belum tersedia");
-    return;
-  }
-  const { currentPage, totalPages, totalRecords } = currentState;
+  const { currentPage, totalPages, totalRecords } = state[currentDataType];
+
+  paginationContainer = document.getElementById("pagination");
   paginationContainer.innerHTML = "";
 
   // Buat wrapper utama yang akan membagi kiri-kanan
@@ -283,23 +265,21 @@ function showFormModal() {
     confirmButtonText: "Save",
     cancelButtonText: "Cancel",
     preConfirm: () => {
-      return getFormData(); // hanya satu fungsi sekarang
+      const fileInput = document.querySelector("#file");
+      if (fileInput && fileInput.files.length > 0) {
+        return getFormDataFile();
+      } else {
+        return getFormData();
+      }
     },
   }).then((result) => {
     if (result.isConfirmed) {
-      const data = result.value;
-      const hasFile = data.file !== undefined;
-
-      if (hasFile) {
-        const formData = new FormData();
-        for (const key in data) {
-          formData.append(key, data[key]);
-        }
-        handleCreateFile(formData, detail_id);
+      const fileInput = document.querySelector("#file");
+      if (fileInput && fileInput.files.length > 0) {
+        handleCreateFile(result.value, detail_id); // Handle with file
       } else {
-        handleCreate(data, detail_id);
+        handleCreate(result.value, detail_id); // Handle without file
       }
-
       currentDataSearch = "";
     }
   });
@@ -313,7 +293,7 @@ function getFormData() {
 
   const formData = new FormData(formElement);
   const dataObj = {};
-  const alwaysString = ["phone", "whatsapp"]; // ← perbaiki logika OR
+  const alwaysString = ["phone" || "whatsapp"]; // ← field yang jangan di-parse ke Number
 
   for (const [key, value] of formData.entries()) {
     const isArrayField = key.endsWith("[]");
@@ -334,86 +314,30 @@ function getFormData() {
     }
   }
 
-  // Validasi manual jika ada file
-  const fileInput = formElement.querySelector("#file");
-  if (fileInput && fileInput.files.length > 0) {
-    // Kamu bisa validasi file size/type di sini kalau perlu
-    dataObj.file = fileInput.files[0];
-  }
-
   if (!validateFormData(dataObj)) {
     return false;
+  } else {
+    return dataObj;
   }
-
-  return dataObj;
 }
 
-function handleCreate(data, detail_id) {
+function handleCreate(formData, detail_id) {
   Swal.showLoading();
+  console.log(formData);
   const createUrl = endpoints[currentDataType].create;
-
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
-  const user_id = user?.user_id;
-  const owner_id = user?.owner_id;
-
-  const finalData = {
-    ...data,
-    user_id: user_id,
-    owner_id: owner_id,
-  };
-
-  const hasFile = data.file instanceof File;
-
-  if (hasFile) {
-    const formData = new FormData();
-
-    for (const key in data) {
-      if (key === "file" && data[key] instanceof File) {
-        formData.append(key, data[key]);
-      } else {
-        formData.append(key, data[key]);
-      }
-    }
-
-    // Tambahkan ID yang diperlukan
-    formData.append("owner_id", 100);
-    formData.append("user_id", 100);
-
-    fetch(createUrl, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${API_TOKEN}`,
-      },
-      body: formData,
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error("Network response was not ok");
-        return res.json();
-      })
-      .then((data) => handleCreateResponse(data, detail_id))
-      .catch((err) => {
-        console.error("Upload error:", err);
-        showErrorAlert("Gagal menyimpan data dengan file. Silakan coba lagi.");
-      });
-  } else {
-    fetch(createUrl, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${API_TOKEN}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(finalData),
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error("Network response was not ok");
-        return res.json();
-      })
-      .then((data) => handleCreateResponse(data, detail_id))
-      .catch((err) => {
-        console.error("Create error:", err);
-        showErrorAlert("Gagal menyimpan data. Silakan cek isian.");
-      });
-  }
+  console.log(createUrl);
+  formData.owner_id = owner_id;
+  fetch(createUrl, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${API_TOKEN}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(formData),
+  })
+    .then((response) => response.json())
+    .then((data) => handleCreateResponse(data, detail_id))
+    .catch(() => showErrorAlert("Failed to save data. Please try again."));
 }
 
 function getFormDataFile() {
@@ -435,41 +359,20 @@ function handleCreateFile(formDataFile, detail_id) {
   Swal.showLoading();
   const createUrl = endpoints[currentDataType].create;
 
-  // Tambah owner_id kalau belum ada
-  if (!formDataFile.has("owner_id")) {
-    formDataFile.append("owner_id", owner_id);
-  }
-
-  const fileInput = document.querySelector('#createForm input[type="file"]');
-  if (fileInput && fileInput.files.length > 0) {
-    formDataFile.append("file", fileInput.files[0]);
-  }
-
   fetch(createUrl, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${API_TOKEN}`, // ❌ Tidak pakai Content-Type!
+      Authorization: `Bearer ${API_TOKEN}`,
     },
     body: formDataFile,
   })
-    .then((response) => {
-      if (!response.ok) {
-        return response.json().then((err) => {
-          console.error("❌ Respon error:", err);
-          throw new Error("Server error: " + (err.message || response.status));
-        });
-      }
-      return response.json();
-    })
+    .then((response) => response.json())
     .then((data) => handleCreateResponse(data, detail_id))
-    .catch((err) => {
-      console.error("❌ Error saat upload file:", err);
-      showErrorAlert("Gagal menyimpan data. Silakan cek inputan.");
-    });
+    .catch(() => showErrorAlert("Failed to save data. Please try again."));
 }
 
 function handleCreateResponse(data, detail_id) {
-  const message = data.message; // ✅ Ambil dari root, bukan dari data.data.message
+  const message = data.data.message;
   const isSuccess = message === "Data successfully added";
 
   Swal.fire({
@@ -556,7 +459,7 @@ function handleDeleteResponse(data) {
 // UPDATE DATA FUNCTIONS
 // ---------------------------------------
 
-async function handleEdit() {
+async function handleEdit(Id, Data, tab) {
   const updateUrl = endpoints[currentDataType].detail;
   const fullUrl = `${updateUrl}/${Id}`;
 
@@ -678,31 +581,4 @@ function handleUpdateResponse(data) {
   }).then(() => {
     fetchAndUpdateData(detail_id);
   });
-}
-
-const alwaysString = ["phone", "whatsapp"]; // ✅ fixed
-
-function validateFormData(data) {
-  for (const key in data) {
-    const value = data[key];
-    if (Array.isArray(value)) {
-      if (value.length === 0 || value.some((v) => v === "" || v === null)) {
-        Swal.fire({
-          icon: "warning",
-          title: "Form Tidak Lengkap",
-          text: `Field ${key} harus diisi.`,
-        });
-        return false;
-      }
-    }
-    if (value === "" || value === null || value === undefined) {
-      Swal.fire({
-        icon: "warning",
-        title: "Form Tidak Lengkap",
-        text: `Field ${key} harus diisi.`,
-      });
-      return false;
-    }
-  }
-  return true;
 }
