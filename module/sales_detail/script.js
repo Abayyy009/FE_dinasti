@@ -302,16 +302,33 @@ async function submitInvoice() {
     formData.append("disc", disc);
     formData.append("ppn", ppn);
     formData.append("total", total);
-    formData.append("status_id", 1); // Auto-set to "On Going"
-    formData.append(
-      "status_revision",
-      (document.getElementById("revision_number").value = "On Going")
-    );
+    formData.append("status_id", 1); // status_id: 1 = On Going
+    formData.append("revision_number", 0);
+    // Pastikan "On Going" cuma default untuk status_id === 1
+    let revisionText = "On Going";
+    if (window.revision_count && window.revision_count > 1) {
+      revisionText = `On Going R${window.revision_count}`;
+    }
+    document.getElementById("revision_number").value = revisionText;
+    formData.append("status_revision", revisionText);
+
     formData.append("items", JSON.stringify(items));
 
     if (document.getElementById("file")?.files?.[0]) {
       formData.append("file", document.getElementById("file")?.files?.[0]);
     }
+    formData.append(
+      "catatan",
+      document.getElementById("catatan")?.value || "-"
+    );
+    formData.append(
+      "syarat_ketentuan",
+      document.getElementById("syarat_ketentuan")?.value || "-"
+    );
+    formData.append(
+      "term_pembayaran",
+      document.getElementById("term_pembayaran")?.value || "-"
+    );
 
     const res = await fetch(`${baseUrl}/add/sales`, {
       method: "POST",
@@ -411,14 +428,7 @@ async function updateInvoice() {
     const total = dpp + ppn;
 
     const status_id = parseInt(document.getElementById("status")?.value || 1);
-    let status_revision = "Revisi ke " + (window.revision_count || 1);
-    if (status_id === 1) {
-      status_revision = `On Going R${window.revision_count || 1}`;
-    } else if (status_id === 2) {
-      status_revision = `Won R${window.revision_count || 1}`;
-    } else if (status_id === 3) {
-      status_revision = `Lose R${window.revision_count || 1}`;
-    }
+    const revisionNumber = window.revision_count || 1;
 
     const body = {
       owner_id: 100,
@@ -433,11 +443,14 @@ async function updateInvoice() {
       ppn: ppn,
       total: total,
       status_id: status_id,
-      status_revision: (document.getElementById("revision_number").value =
-        status_revision),
       items: items,
+      catatan: document.getElementById("catatan")?.value || "-",
+      syarat_ketentuan:
+        document.getElementById("syarat_ketentuan")?.value || "-",
+      term_pembayaran: document.getElementById("term_pembayaran")?.value || "-",
     };
 
+    // Langkah 1: Update data utama sales
     const res = await fetch(`${baseUrl}/update/sales/${window.detail_id}`, {
       method: "PUT",
       headers: {
@@ -449,17 +462,61 @@ async function updateInvoice() {
 
     const json = await res.json();
 
-    if (res.ok) {
-      Swal.fire("Sukses", "✅ Data berhasil diperbarui", "success");
-      loadModuleContent("sales");
-    } else {
+    if (!res.ok) {
       Swal.fire("Gagal", json.message || "❌ Gagal update data", "error");
+      return;
     }
+
+    // Langkah 2: Update status + revision_status via endpoint khusus
+    let revision_status = `Revisi ke ${revisionNumber}`;
+    if (status_id === 1) revision_status = `On Going R${revisionNumber}`;
+    else if (status_id === 2) revision_status = `Won R${revisionNumber}`;
+    else if (status_id === 3) revision_status = `Lose R${revisionNumber}`;
+
+    document.getElementById("revision_number").value = revision_status;
+
+    const resStatus = await fetch(
+      `${baseUrl}/update/status_sales/${window.detail_id}`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${API_TOKEN}`,
+        },
+        body: JSON.stringify({
+          status_id,
+          revision_status,
+        }),
+      }
+    );
+
+    const statusJson = await resStatus.json();
+
+    if (!resStatus.ok) {
+      Swal.fire(
+        "Sebagian Gagal",
+        statusJson.message ||
+          "❌ Data utama tersimpan, tapi gagal update status",
+        "warning"
+      );
+      return;
+    }
+
+    // Sukses total
+    Swal.fire("Sukses", "✅ Data dan status berhasil diperbarui", "success");
+    loadModuleContent("sales");
   } catch (error) {
     console.error("Update error:", error);
     Swal.fire("Error", error.message || "❌ Terjadi kesalahan", "error");
   }
 }
+
+document.getElementById("view_catatan").textContent = data.catatan || "-";
+document.getElementById("view_syarat_ketentuan").textContent =
+  data.syarat_ketentuan || "-";
+document.getElementById("view_term_pembayaran").textContent =
+  data.term_pembayaran || "-";
+
 function initializeForm(isEdit = false) {
   if (isEdit) {
     document.getElementById("statusContainer").classList.remove("hidden");
@@ -479,10 +536,13 @@ function loadDetailSales(Id, Detail) {
   })
     .then((res) => res.json())
     .then(async ({ data }) => {
-      // Pastikan opsi sudah dimuat terlebih dahulu
-      await loadSalesType(); // asumsikan fungsi ini return Promise
+      // ⛳ Tambahkan ini untuk menyimpan revision number ke window
+      window.revision_count = data.revision_number || 1;
+
+      await loadSalesType();
       await loadStatusOptions();
       await updateRevisionNumber();
+
       document.getElementById("formTitle").innerText = `Edit ${Detail}`;
       document.getElementById("tanggal").value = data.tanggal_ymd;
       document.getElementById("type_id").value = data.type_id;
@@ -494,7 +554,6 @@ function loadDetailSales(Id, Detail) {
       document.getElementById("shipping").value = data.shipping;
       document.getElementById("ppn").value = data.ppn;
 
-      // Hitung total jika tidak tersedia di data
       const subtotal =
         (data.contract_amount || 0) -
         (data.disc || 0) +
@@ -502,11 +561,11 @@ function loadDetailSales(Id, Detail) {
         (data.ppn || 0);
       document.getElementById("total").value = subtotal;
 
-      document.getElementById("status").value = data.status || "-";
+      document.getElementById("status").value = data.status_id || 1;
       document.getElementById("revision_number").value =
-        data.revision_number || "";
+        data.revision_status || "-";
 
-      // Toggle tombol berdasarkan status
+      // Tombol aksi
       const simpanBtn = document.querySelector(
         'button[onclick="submitInvoice()"]'
       );
@@ -514,10 +573,9 @@ function loadDetailSales(Id, Detail) {
         'button[onclick="updateInvoice()"]'
       );
       const allowedStatus = [1, 2, 6];
-      console.log("Status ID:", data.status_id);
 
       if (allowedStatus.includes(data.status_id)) {
-        simpanBtn?.classList.add("hidden"); // karena ini mode edit
+        simpanBtn?.classList.add("hidden");
         updateBtn?.classList.remove("hidden");
       } else {
         simpanBtn?.classList.add("hidden");
@@ -526,17 +584,12 @@ function loadDetailSales(Id, Detail) {
 
       // Load item
       const tbody = document.getElementById("tabelItem");
-      tbody.innerHTML = ""; // Bersihkan isi tabel sebelum load ulang
+      tbody.innerHTML = "";
 
       data.items.forEach((item, index) => {
-        tambahItem(); // Fungsi ini menambahkan <tr> sesuai struktur HTML yang kamu pakai
-
+        tambahItem();
         const row = tbody.lastElementChild;
 
-        // Set nomor urut otomatis (kolom pertama)
-        row.children[0].innerText = index + 1;
-
-        // Set nilai dari API ke masing-masing kolom input
         row.querySelector(".itemProduct").value = item.product || "";
         row.querySelector(".itemDesc").value = item.description || "";
         row.querySelector(".itemUnit").value = item.unit || "";
@@ -621,75 +674,6 @@ async function printInvoice(pesanan_id) {
   }
 }
 
-async function sendWhatsAppInvoice() {
-  if (!window.detail_id) return alert("Invoice belum tersedia.");
-
-  try {
-    const res = await fetch(`${baseUrl}/detail/sales/${window.detail_id}`, {
-      headers: { Authorization: `Bearer ${API_TOKEN}` },
-    });
-
-    const { detail } = await res.json();
-    const {
-      customer,
-      no_inv,
-      date,
-      sales_detail,
-      discount_nominal,
-      shipping,
-      terms,
-      term_payment,
-      notes,
-    } = detail;
-
-    // Cari nomor WA dari customerList
-    const client = customerList.find(
-      (c) => c.pelanggan_id == detail.customer_id
-    );
-    const wa = client?.whatsapp?.replace(/\D/g, "");
-    if (!wa) return alert("❌ Nomor WhatsApp client tidak ditemukan.");
-
-    // Format daftar produk
-    let produkList = "";
-    let subtotal = 0;
-    sales_detail.forEach((item, i) => {
-      const qty = item.qty;
-      const harga = item.unit_price;
-      const total = qty * harga;
-      subtotal += total;
-      produkList += `${i + 1}. ${
-        item.product
-      } x${qty} @Rp${harga.toLocaleString("id-ID")} = Rp${total.toLocaleString(
-        "id-ID"
-      )}\n`;
-    });
-
-    const pajak = Math.round(subtotal * 0);
-    const total = subtotal - discount_nominal + pajak + shipping;
-
-    // Susun pesan WA
-    let pesan = `Hallo ${customer},\n\nBerikut tagihan untuk invoice *${no_inv}* (tgl: ${date}):\n\n`;
-    pesan += produkList + "\n";
-    pesan += `Subtotal: Rp${subtotal.toLocaleString("id-ID")}\n`;
-    if (discount_nominal)
-      pesan += `Diskon: Rp${discount_nominal.toLocaleString("id-ID")}\n`;
-    pesan += `Pajak (0%): Rp${pajak.toLocaleString("id-ID")}\n`;
-    if (shipping) pesan += `Ongkir: Rp${shipping.toLocaleString("id-ID")}\n`;
-    pesan += `*Total Tagihan: Rp${total.toLocaleString("id-ID")}*\n\n`;
-    if (notes) pesan += `📝 *Catatan:*\n${notes}\n\n`;
-    if (terms) pesan += `📌 *Syarat & Ketentuan:*\n${terms}\n\n`;
-    if (term_payment) pesan += `💰 *Term of Payment:*\n${term_payment}\n\n`;
-    pesan += `Silakan lakukan pembayaran sesuai ketentuan. Terima kasih 🙏`;
-
-    // Kirim via WA
-    const url = `https://wa.me/${wa}?text=${encodeURIComponent(pesan)}`;
-    window.open(url, "_blank");
-  } catch (err) {
-    console.error("❌ Gagal kirim WA:", err);
-    alert("Gagal mengirim pesan WhatsApp.");
-  }
-}
-
 async function tryGenerateNoQtn() {
   const order_date = document.getElementById("tanggal").value;
   const type_id = document.getElementById("type_id").value;
@@ -750,26 +734,40 @@ async function loadSalesType() {
     console.error("Gagal load sales type:", error);
   }
 }
-async function loadStatusOptions() {
+async function loadStatusOptions(defaultSelectedId = 1) {
   if (statusLoaded) return;
 
   try {
     const response = await fetch(`${baseUrl}/status/sales`, {
-      headers: {
-        Authorization: `Bearer ${API_TOKEN}`,
-      },
+      headers: { Authorization: `Bearer ${API_TOKEN}` },
     });
 
     const data = await response.json();
 
     if (data.response === "200") {
       const select = document.getElementById("status");
+      select.innerHTML = "";
+
+      const placeholder = document.createElement("option");
+      placeholder.value = "";
+      placeholder.textContent = "-- Pilih Status --";
+      select.appendChild(placeholder);
+
       data.data.forEach((item) => {
         const option = document.createElement("option");
         option.value = item.status_id;
         option.textContent = item.status_sales;
+        if (item.status_id == defaultSelectedId) {
+          option.selected = true;
+        }
         select.appendChild(option);
       });
+
+      // Revisi number untuk mode tambah saja
+      if (defaultSelectedId == 1 && !window.detail_id) {
+        document.getElementById("revision_number").value = 0;
+      }
+
       statusLoaded = true;
     } else {
       console.error("Gagal memuat status:", data.message);
