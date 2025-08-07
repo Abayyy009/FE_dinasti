@@ -161,11 +161,14 @@ window.rowTemplate = function (item, index, perPage = 10) {
   </button>
 
   <!-- Delete Order -->
-  <button onclick="event.stopPropagation(); handleDelete('${
-    item.pesanan_id
-  }')" class="block w-full text-left px-4 py-2 hover:bg-gray-100 text-red-600">
-    🗑 Delete Order
-  </button>
+  ${
+    item.status_id !== 2
+      ? `<button onclick="handleDelete('${item.pesanan_id}')" class="block w-full text-left px-4 py-2 hover:bg-gray-100 text-red-600">
+      🗑 Delete Order
+    </button>`
+      : ""
+  }
+
 </div>
 
     </td>

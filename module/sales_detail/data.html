@@ -19,7 +19,7 @@
     <!-- Tombol-tombol sejajar -->
     <div class="flex flex-wrap items-center gap-2">
       <button onclick="submitInvoice()" class="bg-green-700 hover:bg-green-800 text-white px-4 py-2 rounded text-sm">💾
-        Submit</button>
+        Simpan</button>
       <button onclick="updateInvoice()"
         class="bg-yellow-700 hover:bg-yellow-800 text-white px-4 py-2 rounded text-sm hidden">🔄 Update</button>
       <button onclick="printInvoice(detail_id)"
@@ -155,7 +155,7 @@
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
           <label class="block text-sm font-medium">Diskon (Rp)</label>
-          <input type="text" id="discount" class="formatRupiah w-full border px-3 py-2 rounded" value="0"
+          <input type="text" id="discount" class="formatNumber w-full border px-3 py-2 rounded" value="0"
             oninput="calculateInvoiceTotals()" />
         </div>
         <div>
@@ -201,6 +201,11 @@
       </div>
       <!-- List Pembayaran -->
       <div id="listPembayaran" class="space-y-2 mt-3"></div>
+
+
+
+
+
 
     </div>
   </div>

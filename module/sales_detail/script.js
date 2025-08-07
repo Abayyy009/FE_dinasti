@@ -564,6 +564,11 @@ function loadDetailSales(Id, Detail) {
       document.getElementById("status").value = data.status_id || 1;
       document.getElementById("revision_number").value =
         data.revision_status || "-";
+      document.getElementById("catatan").value = data.catatan || "";
+      document.getElementById("syarat_ketentuan").value =
+        data.syarat_ketentuan || "";
+      document.getElementById("term_pembayaran").value =
+        data.term_pembayaran || "";
 
       // Tombol aksi
       const simpanBtn = document.querySelector(
@@ -572,15 +577,16 @@ function loadDetailSales(Id, Detail) {
       const updateBtn = document.querySelector(
         'button[onclick="updateInvoice()"]'
       );
-      const allowedStatus = [1, 2, 6];
 
-      if (allowedStatus.includes(data.status_id)) {
-        simpanBtn?.classList.add("hidden");
-        updateBtn?.classList.remove("hidden");
-      } else {
-        simpanBtn?.classList.add("hidden");
+      // Sembunyikan tombol update jika status_id === 2 (Won)
+      if (data.status_id === 2) {
         updateBtn?.classList.add("hidden");
+      } else {
+        updateBtn?.classList.remove("hidden");
       }
+
+      // Sembunyikan tombol submit pada mode edit
+      simpanBtn?.classList.add("hidden");
 
       // Load item
       const tbody = document.getElementById("tabelItem");
@@ -966,3 +972,35 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("status").value = 1;
   }
 });
+function initModule() {
+  const deleteButton = document.getElementById("confirmDeleteButton");
+  if (deleteButton) {
+    deleteButton.addEventListener("click", handleDelete);
+  }
+}
+async function handleHapus(pesanan_id) {
+  const confirm = await Swal.fire({
+    title: "Yakin ingin menghapus?",
+    icon: "warning",
+    showCancelButton: true,
+    confirmButtonText: "Ya, hapus",
+  });
+
+  if (!confirm.isConfirmed) return;
+
+  try {
+    const response = await fetch(`${baseUrl}/delete/sales/${pesanan_id}`, {
+      method: "PUT",
+      headers: {
+        Authorization: API_TOKEN,
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) throw new Error(`Gagal hapus: ${response.status}`);
+
+    Swal.fire("Berhasil", "Data berhasil dihapus", "success");
+  } catch (err) {
+    Swal.fire("Gagal", "Terjadi kesalahan", "error");
+  }
+}
