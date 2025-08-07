@@ -423,27 +423,47 @@ function handleDelete(id) {
   }).then((result) => {
     if (result.isConfirmed) {
       const deleteUrl = `${endpoints[currentDataType].delete}/${id}`;
-      console.log(deleteUrl);
+      console.log("Deleting from:", deleteUrl);
 
       fetch(deleteUrl, {
-        method: "PUT",
+        method: "PUT", // atau POST kalau backend pakai POST
         headers: {
           Authorization: `Bearer ${API_TOKEN}`,
           "Content-Type": "application/json",
         },
       })
         .then((response) => response.json())
-        .then((data) => handleDeleteResponse(data))
-        .catch(() =>
-          showErrorAlert("Failed to delete data. Please try again.")
-        );
+        .then((data) => {
+          console.log("Delete response:", data);
+
+          const isSuccess = data.response === "200";
+
+          Swal.fire({
+            icon: isSuccess ? "success" : "error",
+            title: isSuccess ? "Deleted!" : "Failed",
+            text: data.message || "Unknown error.",
+          }).then(() => {
+            if (isSuccess) {
+              fetchAndUpdateData(); // refresh tabel
+            }
+          });
+        })
+        .catch((error) => {
+          console.error("Delete error:", error);
+          Swal.fire({
+            icon: "error",
+            title: "Error",
+            text: "Terjadi kesalahan saat menghapus data.",
+          });
+        });
     }
   });
 }
 
 function handleDeleteResponse(data) {
-  const message = data.data.message;
-  const isSuccess = message === "Data successfully deleted";
+  const isSuccess = data.response == 200; // Perbaikan utama di sini
+  const message = data.message || "Unknown response";
+
   setTimeout(() => {
     Swal.fire({
       icon: isSuccess ? "success" : "error",

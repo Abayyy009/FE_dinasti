@@ -2,8 +2,8 @@ const user = JSON.parse(localStorage.getItem("user") || "{}");
 const user_detail = JSON.parse(localStorage.getItem("user_detail") || "{}");
 const company = JSON.parse(localStorage.getItem("company") || "{}");
 
-const owner_id = 100;
-const user_id = 100;
+const owner_id = user.owner_id;
+const user_id = user.user_id;
 const status_active = user.status_active;
 const level = user.level;
 const username = user.username;
@@ -160,55 +160,54 @@ function hideLoading() {
   }, delay);
 }
 
-function loadModuleContent(module, Id, Detail) {
-  showLoading();
-  setActiveMenu(module);
-  currentDataSearch = "";
+async function loadModuleContent(module, Id, Detail) {
+  try {
+    showLoading();
+    setActiveMenu(module);
+    currentDataSearch = "";
 
-  fetch(`./module/${module}/data.html?v=${new Date().getTime()}`)
-    .then((response) => {
-      if (!response.ok) {
-        throw new Error(`Error loading module: ${module}`);
-      }
-      return response.text();
-    })
-    .then((data) => {
-      document.getElementById("content").innerHTML = data;
+    const htmlResponse = await fetch(
+      `./module/${module}/data.html?v=${Date.now()}`
+    );
+    if (!htmlResponse.ok) {
+      throw new Error(`Gagal memuat HTML untuk modul: ${module}`);
+    }
 
-      // ✅ Simpan data detail ke global
-      if (data.trim() !== "") {
-        window.detail_id = Id;
-        window.detail_desc = Detail;
+    const htmlContent = await htmlResponse.text();
+    document.getElementById("content").innerHTML = htmlContent;
 
-        if (module === "sales_detail") {
-          window.pesanan_id = Id;
-        }
-      }
+    if (htmlContent.trim() !== "") {
+      window.detail_id = Id;
+      window.detail_desc = Detail;
+    }
 
-      // ✅ Load script dinamis
-      if (currentScript) {
-        document.body.removeChild(currentScript);
-      }
+    // Hapus script sebelumnya jika ada
+    if (currentScript) {
+      document.body.removeChild(currentScript);
+    }
 
+    // Load script baru
+    await new Promise((resolve, reject) => {
       currentScript = document.createElement("script");
-      currentScript.src = `./module/${module}/script.js?v=${new Date().getTime()}`;
-      
+      currentScript.src = `./module/${module}/script.js?v=${Date.now()}`;
       currentScript.onload = () => {
-        hideLoading(); // ✅ Sembunyikan loading setelah script selesai dimuat
+        console.log(`Script ${module} loaded successfully.`);
+        resolve();
       };
       currentScript.onerror = () => {
-        console.error(`Gagal memuat script: ${module}/script.js`);
-        hideLoading();
+        console.error(`Gagal memuat script: ${module}`);
+        reject();
       };
       document.body.appendChild(currentScript);
-    })
-    .catch((error) => {
-      console.error(error);
-      document.getElementById(
-        "content"
-      ).innerHTML = `<p>Error loading module ${module}</p>`;
-      hideLoading(); // ✅ Tetap sembunyikan loading jika terjadi error
     });
+  } catch (error) {
+    console.error(error);
+    document.getElementById(
+      "content"
+    ).innerHTML = `<p class="text-red-600">Terjadi kesalahan saat memuat modul: ${module}</p>`;
+  } finally {
+    hideLoading(); // Disembunyikan hanya setelah semua proses selesai (sukses atau gagal)
+  }
 }
 
 function collapseSidebar() {
