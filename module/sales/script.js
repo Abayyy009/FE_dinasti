@@ -123,27 +123,47 @@ window.rowTemplate = function (item, index, perPage = 10) {
     </td>
   
     <td class="px-6 py-4 text-sm border-b sm:border-0 flex justify-between sm:table-cell bg-gray-800 text-white sm:bg-transparent sm:text-gray-700">
-        <div class="text-gray-500 text-xs">${item.no_qtn}</div>
-        <div class="font-medium">${item.project_name}</div>
-        <div class="text-gray-500 text-xs">${item.user_nama}</div>
-    </td>
+  <!-- Tampilan mobile: flex layout -->
+  <div class="flex flex-col sm:hidden w-full">
+    <div class="flex justify-between">
+      <span class="font-medium">Sales#</span>
+      <span class="text-gray-300">${item.no_qtn}</span>
+    </div>
+    <div class="flex justify-between mt-1">
+      <span class="font-medium"></span>
+      <span class="font-medium text-right">${item.project_name}</span>
+    </div>
+    <div class="flex justify-between mt-1">
+      <span class="font-medium"></span>
+      <span class="text-gray-300 text-xs text-right">${item.user_nama}</span>
+    </div>
+  </div>
+
+  <!-- Tampilan desktop: table layout -->
+  <div class="hidden sm:block">
+    <div class="text-gray-500 text-xs">${item.no_qtn}</div>
+    <div class="font-medium">${item.project_name}</div>
+    <div class="text-gray-500 text-xs">${item.user_nama}</div>
+  </div>
+</td>
+
   
     <td class="px-6 py-4 text-sm text-gray-700 border-b text-right sm:border-0 flex justify-between sm:table-cell">
-      <span class="font-medium sm:hidden">Sisa Bayar</span>
+      <span class="font-medium sm:hidden">Type</span>
       ${item.project_type}
     </td>
   
-    <td class="px-6 py-4 text-sm text-gray-700 border-b text-right sm:border-0 flex justify-between sm:table-cell w-[17%]">
-      <span class="font-medium sm:hidden">Sisa Bayar</span>
+    <td class="px-6 py-4 text-sm text-gray-700 border-b text-right sm:border-0 flex justify-between sm:table-cell">
+      <span class="font-medium sm:hidden">Amount</span>
       ${formatRupiah(item.contract_amount)}
     </td>
 
     <td class="px-6 py-4 text-sm text-gray-700 border-b sm:border-0 flex justify-between sm:table-cell">
-      <span class="font-medium sm:hidden">PIC</span>
+      <span class="font-medium sm:hidden">Client</span>
       ${item.pelanggan_nama}
     </td>
   
-    <td class="px-6 py-4 text-center text-sm text-gray-700 flex justify-between sm:table-cell">
+    <td class="px-6 py-4 text-center text-sm text-gray-700 sm:border-0 flex justify-between sm:table-cell">
       <span class="font-medium sm:hidden">Status</span>
       <span class="${getStatusClass(
         item.status
@@ -172,9 +192,10 @@ window.rowTemplate = function (item, index, perPage = 10) {
 </div>
 
     </td>
-    <td class="px-6 py-4 text-sm border-b sm:border-0 flex justify-between sm:table-cell bg-gray-800 text-white sm:bg-transparent sm:text-gray-700">${
-      item.revision_status
-    }</td>
+    <td class="px-6 py-4 text-sm text-gray-700 border-b sm:border-0 flex justify-between sm:table-cell">
+      <span class="font-medium sm:hidden">Revision Status</span>
+      ${item.revision_status}
+    </td>
   </tr>`;
 };
 
