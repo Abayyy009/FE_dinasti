@@ -55,19 +55,17 @@ function updateMetrics(data) {
   ).toFixed(1)}% to achieve`;
 
   // Tambahan: Update Qty & Nominal dari status won, ongoing, dan loss
-  document.getElementById("wonQty").innerText = data.won.qty;
-  document.getElementById("wonNominal").innerText = formatCurrency(
-    data.won.nominal
-  );
+  document.getElementById("wonQty").innerText = won.qty;
+  document.getElementById("wonNominal").innerText = formatCurrency(won.nominal);
 
-  document.getElementById("ongoingQty").innerText = data.ongoing.qty;
+  document.getElementById("ongoingQty").innerText = ongoing.qty;
   document.getElementById("ongoingNominal").innerText = formatCurrency(
-    data.ongoing.nominal
+    ongoing.nominal
   );
 
-  document.getElementById("lossQty").innerText = data.loss.qty;
+  document.getElementById("lossQty").innerText = loss.qty;
   document.getElementById("lossNominal").innerText = formatCurrency(
-    data.loss.nominal
+    loss.nominal
   );
 }
 

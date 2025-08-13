@@ -9,9 +9,6 @@ let url = null;
 let currentDataSearch = "";
 let currentPeriod = "weekly"; // default
 let chartType = "bar"; // default (bisa bar atau line)
-let STATUS_CACHE = null;
-let OLD_STATUS_LABEL = null;
-let OLD_STATUS_REV = null;
 
 const defaultState = {
   currentPage: 1,
@@ -24,71 +21,71 @@ function modedev() {
   const devModeElement = document.getElementById("devmode");
   if (mode === "development") {
     devModeElement.classList.remove("hidden");
-    devModeElement.textContent = "";
+    devModeElement.textContent = "<dev> Development Mode </dev>";
   }
 }
 
 const state = {
   user: { ...defaultState },
   sales: { ...defaultState },
-  project: { ...defaultState },
+  sales_unpaid: { ...defaultState },
+  sales_receipt: { ...defaultState },
+  sales_package: { ...defaultState },
   sales_detail: { ...defaultState },
+  sales_log_detail: { ...defaultState },
+  package_slip: { ...defaultState },
+  sales_shipment: { ...defaultState },
+  shipment_slip: { ...defaultState },
+  shipment_label: { ...defaultState },
+  product: { ...defaultState },
+  product_bundling: { ...defaultState },
+  client: { ...defaultState },
+  business_category: { ...defaultState },
 };
 
-const endpoints = ["user", "sales", "project", "sales_detail"].reduce(
-  (acc, type) => {
-    acc[type] = {
-      table: `${baseUrl}/table/${type}/100`,
-      list: `${baseUrl}/list/${type}/${owner_id}`,
-      detail: `${baseUrl}/detail/${type}`,
-      update: `${baseUrl}/update/${type}`,
-      create: `${baseUrl}/add/${type}`,
-      delete: `${baseUrl}/delete/${type}`,
-    };
-    return acc;
-  },
-  {}
-);
+const endpoints = [
+  "user",
+  "sales",
+  "sales_unpaid",
+  "sales_receipt",
+  "sales_package",
+  "sales_detail",
+  "sales_detail_log",
+  "package_slip",
+  "sales_shipment",
+  "shipment_slip",
+  "shipment_label",
+  "product",
+  "product_bundling",
+  "client",
+  "business_category",
+].reduce((acc, type) => {
+  acc[type] = {
+    table: `${baseUrl}/table/${type}/100`,
+    list: `${baseUrl}/list/${type}/${owner_id}`,
+    detail: `${baseUrl}/detail/${type}`,
+    update: `${baseUrl}/update/${type}`,
+    create: `${baseUrl}/add/${type}`,
+    delete: `${baseUrl}/delete/${type}`,
+  };
+  return acc;
+}, {});
 
 async function fetchData(type, page = 1, id = null) {
   try {
     let url = id
-      ? `${endpoints[type].table}/${id}/${page}`
-      : `${endpoints[type].table}/${page}`;
-
-    if (currentDataSearch && currentDataSearch.trim() !== "") {
-      url += `?search=${encodeURIComponent(currentDataSearch.trim())}`;
-    }
-
-    console.log("[fetchData] Final URL:", url); // ✅ Debug URL
-
+      ? `${endpoints[type].table}/${id}/${page}?search=${currentDataSearch}`
+      : `${endpoints[type].table}/${page}?search=${currentDataSearch}`;
+    // console.log(url);
     const response = await fetch(url, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${API_TOKEN}`,
-      },
+      headers: { Authorization: `Bearer ${API_TOKEN}` },
     });
 
     if (!response.ok) throw new Error("Network response was not ok");
-
-    const json = await response.json();
-    console.log("[fetchData] Response JSON:", json); // ✅ Debug JSON response
-
-    // Kondisi: respons bisa dari sales (pakai json.data.records) atau project (pakai json.tableData)
-    const isProject = Array.isArray(json.tableData);
-
-    return {
-      tableData: isProject ? json.tableData : json?.data?.records || [],
-      totalRecords: isProject
-        ? json.totalRecords
-        : json?.data?.totalRecords || json?.data?.records?.length || 0,
-      totalPages: isProject ? json.totalPages : json?.data?.totalPages || 1,
-      currentPage: isProject ? json.currentPage : json?.data?.currentPage || 1,
-    };
+    return await response.json();
   } catch (error) {
     console.error(`Error fetching ${type} data:`, error);
-    return { tableData: [], totalRecords: 0, totalPages: 0, currentPage: 1 };
+    return { data: [], totalRecords: 0, totalPages: 0 };
   }
 }
 
@@ -146,6 +143,7 @@ async function createData(type, payload) {
       method: "POST",
       headers: {
         Authorization: `Bearer ${API_TOKEN}`,
+        "Content-Type": "application/json",
       },
       body: body,
     });
@@ -196,8 +194,12 @@ async function deleteData(type, id) {
       method: "PUT",
       headers: { Authorization: `Bearer ${API_TOKEN}` },
     });
+
     if (!response.ok) throw new Error("Network response was not ok");
-    return await response.json();
+
+    const data = await response.json();
+    console.log("Response JSON:", data); // <-- Tambah ini
+    return data;
   } catch (error) {
     console.error(`Error deleting ${type}:`, error);
     return null;
